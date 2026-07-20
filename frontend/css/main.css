@@ -1,0 +1,206 @@
+/* HGRIA Main Styles - CSS Grid Layout with Custom Properties */
+
+/* ===== CSS Custom Properties ===== */
+:root {
+    /* Colors */
+    --color-bg-primary: #1a1a2e;
+    --color-bg-secondary: #16213e;
+    --color-bg-tertiary: #0f3460;
+    --color-accent: #e94560;
+    --color-accent-hover: #ff6b6b;
+    --color-success: #27ae60;
+    --color-warning: #f39c12;
+    --color-error: #e74c3c;
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #a0a0a0;
+    --color-text-muted: #666666;
+    --color-border: #2a2a4a;
+    
+    /* Typography */
+    --font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.125rem;
+    --font-size-xl: 1.25rem;
+    --font-size-2xl: 1.5rem;
+    --font-size-3xl: 2rem;
+    
+    /* Spacing */
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+    --spacing-2xl: 3rem;
+    
+    /* Border Radius */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-full: 9999px;
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.5);
+    
+    /* Transitions */
+    --transition-fast: 150ms ease;
+    --transition-normal: 250ms ease;
+    --transition-slow: 400ms ease;
+    
+    /* Layout */
+    --sidebar-width: 280px;
+    --hud-height: auto;
+}
+
+/* ===== Reset & Base ===== */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    font-family: var(--font-family);
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-primary);
+    line-height: 1.5;
+    overflow: hidden;
+}
+
+/* ===== App Container ===== */
+.app-container {
+    display: grid;
+    grid-template-columns: 1fr var(--sidebar-width);
+    grid-template-rows: 1fr;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* ===== Main Game Area ===== */
+.game-area {
+    grid-column: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--color-bg-secondary);
+    position: relative;
+    overflow: hidden;
+}
+
+/* ===== Gesture Guide Sidebar ===== */
+.gesture-guide {
+    grid-column: 2;
+    background-color: var(--color-bg-secondary);
+    border-left: 1px solid var(--color-border);
+    padding: var(--spacing-lg);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.gesture-guide-title {
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 2px solid var(--color-accent);
+}
+
+.gesture-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.gesture-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm);
+    background-color: var(--color-bg-tertiary);
+    border-radius: var(--radius-md);
+    transition: background-color var(--transition-fast);
+}
+
+.gesture-item:hover {
+    background-color: rgba(233, 69, 96, 0.2);
+}
+
+.gesture-icon {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    border-radius: var(--radius-sm);
+    background-color: var(--color-bg-primary);
+}
+
+.gesture-name {
+    font-weight: 500;
+    font-size: var(--font-size-sm);
+    flex: 1;
+}
+
+.gesture-desc {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+/* ===== Keyboard Hint ===== */
+.keyboard-hint {
+    margin-top: auto;
+    padding: var(--spacing-md);
+    background-color: var(--color-bg-tertiary);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.keyboard-hint h3 {
+    font-size: var(--font-size-sm);
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-text-primary);
+}
+
+/* ===== Responsive Breakpoint ===== */
+@media (max-width: 900px) {
+    .app-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+    }
+    
+    .gesture-guide {
+        grid-column: 1;
+        grid-row: 2;
+        max-height: 200px;
+        border-left: none;
+        border-top: 1px solid var(--color-border);
+    }
+    
+    .gesture-list {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: var(--spacing-sm);
+    }
+    
+    .gesture-item {
+        flex: 0 0 auto;
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+    
+    .gesture-desc {
+        display: none;
+    }
+}

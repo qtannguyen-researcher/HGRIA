@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="HGRIA - Hand Gesture Recognition for Interactive Applications">
+    <title>HGRIA - Hand Gesture Recognition Game</title>
+    
+    <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" 
+            integrity="sha384-2biaI9cF8t1L3CXGuyqdtN1e3T1jKpzK/6xQ7KZP5j/AwO8xkMhKJwKfT7tZ0" 
+            crossorigin="anonymous"></script>
+    
+    <!-- Local JS Modules (loaded in dependency order) -->
+    <script src="js/config.js" defer></script>
+    <script src="js/state.js" defer></script>
+    <script src="js/websocket.js" defer></script>
+    <script src="js/audio.js" defer></script>
+    <script src="js/renderer.js" defer></script>
+    <script src="js/game.js" defer></script>
+    <script src="js/hud.js" defer></script>
+    <script src="js/main.js" defer></script>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/game.css">
+    <link rel="stylesheet" href="css/hud.css">
+</head>
+<body>
+    <div id="app" class="app-container">
+        <!-- Main Game Area -->
+        <main class="game-area">
+            <canvas id="game-canvas" class="game-canvas"></canvas>
+        </main>
+        
+        <!-- HUD Overlay -->
+        <div id="hud" class="hud-overlay">
+            <div class="hud-header">
+                <span id="hud-state" class="hud-state">idle</span>
+                <div class="hud-conn-status">
+                    <span id="hud-conn-dot" class="conn-dot conn-dot--disconnected"></span>
+                </div>
+            </div>
+            
+            <div class="hud-gesture-panel">
+                <div class="hud-gesture-label">Current Gesture</div>
+                <div id="hud-gesture-name" class="hud-gesture-name">—</div>
+                <div class="hud-confidence-container">
+                    <div class="hud-confidence-bar-bg">
+                        <div id="hud-confidence-fill" class="hud-confidence-fill" style="width: 0%"></div>
+                    </div>
+                    <span id="hud-confidence-pct" class="hud-confidence-pct">0%</span>
+                </div>
+            </div>
+            
+            <div class="hud-stats">
+                <div class="hud-stat">
+                    <span class="hud-stat-label">FPS</span>
+                    <span id="hud-fps" class="hud-stat-value">0 FPS</span>
+                </div>
+                <div class="hud-stat">
+                    <span class="hud-stat-label">Latency</span>
+                    <span id="hud-latency" class="hud-stat-value">0 ms</span>
+                </div>
+            </div>
+            
+            <div class="hud-game-info">
+                <div id="hud-score" class="hud-score">Score: 0</div>
+                <div id="hud-lives" class="hud-lives"></div>
+            </div>
+        </div>
+        
+        <!-- Gesture Guide Sidebar -->
+        <aside id="gesture-guide" class="gesture-guide">
+            <h2 class="gesture-guide-title">Gesture Guide</h2>
+            <div class="gesture-list">
+                <div class="gesture-item">
+                    <img src="assets/gestures/open_palm.png" alt="Open Palm" class="gesture-icon" onerror="this.style.display='none'">
+                    <span class="gesture-name">Open Palm</span>
+                    <span class="gesture-desc">Stop/Brake</span>
+                </div>
+                <div class="gesture-item">
+                    <img src="assets/gestures/point_left.png" alt="Point Left" class="gesture-icon" onerror="this.style.display='none'">
+                    <span class="gesture-name">Point Left</span>
+                    <span class="gesture-desc">Move Left</span>
+                </div>
+                <div class="gesture-item">
+                    <img src="assets/gestures/point_right.png" alt="Point Right" class="gesture-icon" onerror="this.style.display='none'">
+                    <span class="gesture-name">Point Right</span>
+                    <span class="gesture-desc">Move Right</span>
+                </div>
+                <div class="gesture-item">
+                    <img src="assets/gestures/thumb_up.png" alt="Thumb Up" class="gesture-icon" onerror="this.style.display='none'">
+                    <span class="gesture-name">Thumb Up</span>
+                    <span class="gesture-desc">Jump</span>
+                </div>
+                <div class="gesture-item">
+                    <img src="assets/gestures/closed_fist.png" alt="Closed Fist" class="gesture-icon" onerror="this.style.display='none'">
+                    <span class="gesture-name">Closed Fist</span>
+                    <span class="gesture-desc">Speed Boost</span>
+                </div>
+                <div class="gesture-item">
+                    <img src="assets/gestures/victory.png" alt="Victory" class="gesture-icon" onerror="this.style.display='none'">
+                    <span class="gesture-name">Victory</span>
+                    <span class="gesture-desc">Select</span>
+                </div>
+                <div class="gesture-item">
+                    <img src="assets/gestures/stop.png" alt="Stop" class="gesture-icon" onerror="this.style.display='none'">
+                    <span class="gesture-name">Stop</span>
+                    <span class="gesture-desc">Pause</span>
+                </div>
+                <div class="gesture-item">
+                    <img src="assets/gestures/pinch.png" alt="Pinch" class="gesture-icon" onerror="this.style.display='none'">
+                    <span class="gesture-name">Pinch</span>
+                    <span class="gesture-desc">Zoom In</span>
+                </div>
+                <div class="gesture-item">
+                    <img src="assets/gestures/ok.png" alt="OK" class="gesture-icon" onerror="this.style.display='none'">
+                    <span class="gesture-name">OK</span>
+                    <span class="gesture-desc">Confirm</span>
+                </div>
+            </div>
+            
+            <div class="keyboard-hint">
+                <h3>Keyboard Fallback</h3>
+                <p>Arrow Keys: Move | Space: Jump | P: Pause | S: Boost | Enter: Confirm</p>
+            </div>
+        </aside>
+    </div>
+</body>
+</html>
