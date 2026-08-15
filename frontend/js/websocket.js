@@ -130,7 +130,9 @@ class SocketClient {
      */
     #scheduleReconnect() {
         if (this.#retryCount >= this.#maxRetries) {
-            this.#gameState.setError({ message: 'Max reconnection attempts reached' });
+            this.#gameState.setError({ 
+                message: 'Không thể kết nối. Vui lòng kiểm tra Ngrok URL và làm mới trang.' 
+            });
             return;
         }
         
@@ -186,5 +188,16 @@ class SocketClient {
      */
     isConnected() {
         return this.#connected;
+    }
+    
+    /**
+     * Reconnect with a new URL
+     * @param {string} newUrl - New server URL
+     */
+    reconnect(newUrl) {
+        this.disconnect();
+        this.#url = newUrl;
+        this.#retryCount = 0;
+        this.connect();
     }
 }

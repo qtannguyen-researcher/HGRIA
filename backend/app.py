@@ -6,6 +6,7 @@ from typing import Any, Optional
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_socketio import SocketIO
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from backend.core.models import Session
 from backend.core.state_manager import StateManager
@@ -51,6 +52,9 @@ def create_app(
     app.config["HG_STATE_MANAGER"] = state_manager
     app.config["HG_COMMAND_QUEUE"] = command_queue
     app.config["HG_LOGGER"] = logger
+
+    # Apply ProxyFix for ngrok (reverse proxy)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     # Register blueprints
     from backend.routes.health import health_bp
@@ -108,7 +112,7 @@ def create_app(
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self' https://cdn.socket.io; "
             "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
-            "connect-src 'self' https://*; worker-src 'self'"
+            "connect-src 'self' https://*.ngrok-free.app wss://*.ngrok-free.app https://*; worker-src 'self'"
         )
         return response
 

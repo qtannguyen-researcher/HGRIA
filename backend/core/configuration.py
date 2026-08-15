@@ -227,7 +227,10 @@ class ConfigurationManager:
         if name.startswith("_"):
             raise AttributeError(name)
         if name in self._data:
-            return _Namespace(self._data[name])
+            val = self._data[name]
+            if isinstance(val, dict):
+                return _Namespace(val)
+            return val
         raise AttributeError(f"No config section: {name}")
 
     def get(self, section: str, param: str, default: Any = None) -> Any:

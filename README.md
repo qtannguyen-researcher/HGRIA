@@ -70,6 +70,87 @@ Open `frontend/index.html` in your browser, or visit:
 http://localhost:5000
 ```
 
+## Triển khai trên Colab + ngrok
+
+### Kiến trúc hệ thống
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    ARCHITECTURE                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   Browser (Frontend)     ngrok Tunnel      Colab Backend   │
+│   ┌──────────────┐      ┌──────────┐     ┌──────────────┐   │
+│   │  GitHub Pages │ ←─── │  HTTPS   │ ←── │  Flask +     │   │
+│   │  / Vercel    │      │  Tunnel  │     │  MediaPipe   │   │
+│   └──────────────┘      └──────────┘     └──────────────┘   │
+│         │                                          │        │
+│         │           Google Drive                    │        │
+│         └──────────────┬───────────────────────────┘        │
+│                        │ logs/                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Điều kiện tiên quyết
+
+- Tài khoản Google (để sử dụng Google Colab)
+- Tài khoản ngrok miễn phí (đăng ký tại https://dashboard.ngrok.com)
+- Trình duyệt hỗ trợ WebRTC (Chrome, Edge, Firefox)
+
+### Các bước triển khai
+
+**1. Chuẩn bị Google Drive**
+
+- Tải toàn bộ project HGRIA lên Google Drive tại đường dẫn: `/content/drive/MyDrive/HGRIA/`
+- Đảm bảo có file `requirements.txt` trong thư mục gốc
+
+**2. Mở Notebook Colab**
+
+- Mở file `notebooks/HGRIA_Launch.ipynb` trong Google Colab
+- Kết nối Google Drive (ô 1)
+
+**3. Cài đặt phụ thuộc**
+
+- Chạy ô 2 để copy project và cài dependencies
+- Kiểm tra các package đã cài đặt thành công
+
+**4. Cấu hình ngrok**
+
+- Chạy ô 3
+- Nhập ngrok authtoken (khuyến nghị) hoặc bỏ trống để sử dụng anonymous tunnel
+- Anonymous tunnel có thể bị ngắt kết nối thường xuyên
+
+**5. Khởi động Backend**
+
+- Chạy ô 4 để khởi tạo ngrok tunnel và lấy URL
+- Chạy ô 5 để cấu hình Colab mode
+- Chạy ô 6 (blocking) để khởi động server
+
+**6. Truy cập Frontend**
+
+- Mở trình duyệt và truy cập: `https://your-username.github.io/HGRIA/?server=<NGROK_URL>`
+- Hoặc nhập Ngrok URL vào form setup trên trang frontend
+- Cho phép truy cập webcam khi được yêu cầu
+
+### Deploy Frontend lên GitHub Pages
+
+Frontend được tự động deploy khi có thay đổi trong thư mục `frontend/`:
+
+```bash
+# Frontend sẽ được deploy tự động qua GitHub Actions
+# Xem workflow tại: .github/workflows/deploy.yml
+```
+
+Hoặc deploy thủ công qua Vercel:
+
+```bash
+# Cài Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel
+```
+
 ## Google Colab Deployment
 
 ### 1. Upload Files to Colab
@@ -376,6 +457,16 @@ HGRIA/
 ```
 
 ## Troubleshooting
+
+### Colab + ngrok Issues
+
+| Vấn đề | Giải pháp |
+|---------|-----------|
+| Colab session timeout | Re-run ô 6 (server sẽ tự khởi động lại) |
+| ngrok URL thay đổi | Re-run ô 4, 5, 6 và cập nhật URL mới vào Frontend |
+| Webcam bị từ chối | Sử dụng keyboard fallback (Arrow keys, Space, P, S) |
+| Anonymous tunnel bị ngắt | Đăng ký ngrok và nhập authtoken ở ô 3 |
+| Kết nối WebSocket thất bại | Kiểm tra Ngrok URL, đảm bảo Backend đang chạy |
 
 ### Camera Not Detected
 

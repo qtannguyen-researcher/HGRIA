@@ -15,6 +15,7 @@
     <script src="js/config.js" defer></script>
     <script src="js/state.js" defer></script>
     <script src="js/websocket.js" defer></script>
+    <script src="js/webcam_bridge.js" defer></script>
     <script src="js/audio.js" defer></script>
     <script src="js/renderer.js" defer></script>
     <script src="js/game.js" defer></script>
@@ -27,6 +28,76 @@
     <link rel="stylesheet" href="css/hud.css">
 </head>
 <body>
+    <!-- Backend Setup Overlay -->
+    <div id="backend-setup-overlay" style="display: none;">
+        <div class="overlay-content">
+            <h2>Nhập Ngrok URL</h2>
+            <input id="backend-url-input" type="url" placeholder="https://xxxx.ngrok-free.app" required>
+            <button id="backend-url-confirm">Kết nối</button>
+            <p class="hint">Lấy URL từ output ô 5 trong Notebook Colab</p>
+        </div>
+    </div>
+    
+    <style>
+        #backend-setup-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.85);
+        }
+        #backend-setup-overlay .overlay-content {
+            background: #1a1a2e;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        #backend-setup-overlay h2 {
+            color: #fff;
+            margin-bottom: 24px;
+            font-size: 24px;
+        }
+        #backend-setup-overlay input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #4a4a6a;
+            border-radius: 8px;
+            background: #0f0f1a;
+            color: #fff;
+            font-size: 16px;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+        }
+        #backend-setup-overlay input:focus {
+            outline: none;
+            border-color: #7c3aed;
+        }
+        #backend-setup-overlay button {
+            width: 100%;
+            padding: 14px;
+            background: #7c3aed;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #backend-setup-overlay button:hover {
+            background: #6d28d9;
+        }
+        #backend-setup-overlay .hint {
+            color: #888;
+            font-size: 14px;
+            margin-top: 16px;
+        }
+    </style>
+    
     <div id="app" class="app-container">
         <!-- Main Game Area -->
         <main class="game-area">

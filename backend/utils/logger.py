@@ -91,28 +91,28 @@ class StructuredLogger:
     def debug(self, event: str, **kwargs: Any) -> None:
         """Log a DEBUG level entry."""
         if self._should_log("DEBUG"):
-            kwargs["_module"] = kwargs.pop("_module", "unknown")
+            kwargs["_module"] = kwargs.pop("module", kwargs.pop("_module", "unknown"))
             self._queue.put_nowait(self._entry("DEBUG", event, **kwargs))
 
     def info(self, event: str, **kwargs: Any) -> None:
         """Log an INFO level entry."""
         if self._should_log("INFO"):
-            kwargs["_module"] = kwargs.pop("_module", "unknown")
+            kwargs["_module"] = kwargs.pop("module", kwargs.pop("_module", "unknown"))
             self._queue.put_nowait(self._entry("INFO", event, **kwargs))
 
     def warning(self, event: str, **kwargs: Any) -> None:
         """Log a WARNING level entry."""
-        kwargs["_module"] = kwargs.pop("_module", "unknown")
+        kwargs["_module"] = kwargs.pop("module", kwargs.pop("_module", "unknown"))
         self._queue.put_nowait(self._entry("WARNING", event, **kwargs))
 
     def error(self, event: str, **kwargs: Any) -> None:
         """Log an ERROR level entry."""
-        kwargs["_module"] = kwargs.pop("_module", "unknown")
+        kwargs["_module"] = kwargs.pop("module", kwargs.pop("_module", "unknown"))
         self._queue.put_nowait(self._entry("ERROR", event, **kwargs))
 
     def critical(self, event: str, **kwargs: Any) -> None:
         """Log a CRITICAL level entry."""
-        kwargs["_module"] = kwargs.pop("_module", "unknown")
+        kwargs["_module"] = kwargs.pop("module", kwargs.pop("_module", "unknown"))
         self._queue.put_nowait(self._entry("CRITICAL", event, **kwargs))
 
     def flush(self) -> None:

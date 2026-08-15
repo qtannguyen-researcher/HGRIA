@@ -1,54 +1,54 @@
 {
-    "camera": {
-        "index": 0,
-        "frame_width": 640,
-        "frame_height": 480,
-        "target_fps": 30,
-        "colab_mode": false
-    },
-    "mediapipe": {
-        "min_detection_confidence": 0.7,
-        "min_tracking_confidence": 0.5,
-        "max_num_hands": 1,
-        "model_complexity": 0
-    },
-    "gesture_recognition": {
-        "confidence_threshold": 0.75,
-        "smoothing_window_size": 5,
-        "noise_filter_blur_threshold": 100,
-        "dominant_hand": "Right"
-    },
-    "gesture_cooldowns_ms": {
-        "open_palm": 500,
-        "closed_fist": 500,
-        "point_left": 300,
-        "point_right": 300,
-        "thumb_up": 500,
-        "victory": 500,
-        "stop": 1000,
-        "pinch": 400,
-        "ok": 500
-    },
-    "server": {
-        "host": "0.0.0.0",
-        "port": 5000,
-        "websocket_path": "/socket.io/",
-        "cors_origins": "*",
-        "command_buffer_size": 10,
-        "command_buffer_ttl_seconds": 5
-    },
-    "logging": {
-        "level": "INFO",
-        "log_to_file": true,
-        "log_file_path": "/content/drive/MyDrive/HGRIA/logs/",
-        "log_raw_landmarks": false,
-        "max_log_file_size_mb": 10,
-        "max_log_files": 5
-    },
-    "debug": {
-        "debug_mode": false,
-        "show_landmark_overlay": false,
-        "log_pipeline_latency": false
-    },
-    "custom_gestures": []
+  "camera": {
+    "index": 0,
+    "frame_width": 640,
+    "frame_height": 480,
+    "target_fps": 30,
+    "colab_mode": false
+  },
+  "mediapipe": {
+    "min_detection_confidence": 0.7,
+    "min_tracking_confidence": 0.5,
+    "max_num_hands": 1,
+    "model_complexity": 0
+  },
+  "gesture_recognition": {
+    "confidence_threshold": 0.75,
+    "smoothing_window_size": 5,
+    "noise_filter_blur_threshold": 100,
+    "dominant_hand": "Right"
+  },
+  "gesture_cooldowns_ms": {
+    "open_palm": 500,
+    "closed_fist": 500,
+    "point_left": 300,
+    "point_right": 300,
+    "thumb_up": 500,
+    "victory": 500,
+    "stop": 1000,
+    "pinch": 400,
+    "ok": 500
+  },
+  "server": {
+    "host": "0.0.0.0",
+    "port": 5000,
+    "websocket_path": "/socket.io/",
+    "cors_origins": "*",
+    "command_buffer_size": 10,
+    "command_buffer_ttl_seconds": 5
+  },
+  "logging": {
+    "level": "INFO",
+    "log_to_file": true,
+    "log_file_path": "logs/",
+    "log_raw_landmarks": false,
+    "max_log_file_size_mb": 10,
+    "max_log_files": 5
+  },
+  "debug": {
+    "debug_mode": false,
+    "show_landmark_overlay": false,
+    "log_pipeline_latency": false
+  },
+  "custom_gestures": []
 }

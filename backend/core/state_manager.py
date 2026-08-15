@@ -19,6 +19,8 @@ class SystemState(str, Enum):
 # (current_state, event) -> next_state
 TRANSITION_TABLE: Dict[Tuple[SystemState, str], SystemState] = {
     (SystemState.IDLE,         "client_connected"):     SystemState.SEARCHING,
+    (SystemState.IDLE,         "no_hand_detected"):     SystemState.IDLE,
+    (SystemState.IDLE,         "hand_detected"):        SystemState.IDLE,
     (SystemState.IDLE,         "shutdown"):             SystemState.SHUTDOWN,
 
     (SystemState.SEARCHING,    "hand_detected"):        SystemState.TRACKING,
@@ -100,7 +102,7 @@ class StateManager:
             self._log.warning(
                 "invalid_transition",
                 current=self._state.value if hasattr(self._state, 'value') else str(self._state),
-                event=event,
+                transition_event=event,
                 module="state_manager"
             )
             return False
@@ -112,7 +114,7 @@ class StateManager:
             "state_transition",
             old=old.value,
             new=next_state.value,
-            event=event,
+            transition_event=event,
             module="state_manager"
         )
 

@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const socketClient = new SocketClient(CONFIG.SERVER_URL, gameState);
     const hudManager = new HUDManager();
     const gameEngine = new GameEngine(gameState, renderer, audioManager);
+    const webcamBridge = new WebcamBridge();
     
     // Resume audio on first user interaction
     document.addEventListener('click', () => {
@@ -40,8 +41,51 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
-    // Connect to server
-    socketClient.connect();
+    // Backend URL setup
+    const overlay = document.getElementById('backend-setup-overlay');
+    const input = document.getElementById('backend-url-input');
+    const button = document.getElementById('backend-url-confirm');
+    
+    /**
+     * Validate URL and save backend URL, then connect
+     * @param {string} url - Backend URL
+     */
+    function saveAndConnect(url) {
+        if (!url.startsWith('https://')) {
+            hudManager.showError('URL phải bắt đầu bằng https://');
+            return;
+        }
+        localStorage.setItem('hgria_backend_url', url);
+        window.HGRIA_BACKEND_URL = url;
+        overlay.style.display = 'none';
+        socketClient.reconnect(url);
+        webcamBridge.start(url);
+    }
+    
+    // Connect button handler
+    button.addEventListener('click', () => {
+        saveAndConnect(input.value.trim());
+    });
+    
+    // Enter key to submit
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            saveAndConnect(input.value.trim());
+        }
+    });
+    
+    // Webcam denied handler
+    window.addEventListener('webcam_denied', (e) => {
+        hudManager.showError('Webcam bị từ chối. Dùng bàn phím để điều khiển.');
+    });
+    
+    // Show overlay if no server URL configured
+    if (!CONFIG.SERVER_URL || CONFIG.SERVER_URL === 'http://localhost:5000') {
+        overlay.style.display = 'flex';
+    } else {
+        socketClient.connect();
+        webcamBridge.start(CONFIG.SERVER_URL);
+    }
     
     // Start game engine
     gameEngine.start();

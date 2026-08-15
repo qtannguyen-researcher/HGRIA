@@ -5,10 +5,25 @@
 
 // ===== Server Configuration =====
 const CONFIG = {
-    // Server URL - overridable via ?server= query param
+    // Server URL - overridable via multiple sources in priority order
     get SERVER_URL() {
+        // 1. window.HGRIA_BACKEND_URL (set by Colab notebook)
+        if (window.HGRIA_BACKEND_URL) {
+            return window.HGRIA_BACKEND_URL;
+        }
+        // 2. localStorage
+        const stored = localStorage.getItem('hgria_backend_url');
+        if (stored) {
+            return stored;
+        }
+        // 3. query param ?server=
         const params = new URLSearchParams(window.location.search);
-        return params.get('server') || 'http://localhost:5000';
+        const serverParam = params.get('server');
+        if (serverParam) {
+            return serverParam;
+        }
+        // 4. Default to localhost
+        return 'http://localhost:5000';
     },
     
     // Connection settings

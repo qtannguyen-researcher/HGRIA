@@ -1,7 +1,7 @@
 """Cooldown manager for rate-limiting gesture emissions."""
 
 import time
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
     from backend.core.configuration import ConfigurationManager

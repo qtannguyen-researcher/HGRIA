@@ -110,8 +110,16 @@ class SystemOrchestrator:
                 allow_unsafe_werkzeug=True
             )
 
-        except (Exception) as e:
-            if self._logger:
+        except Exception as e:
+            from backend.core.errors import CameraInitializationError
+            if isinstance(e, CameraInitializationError):
+                msg = (
+                    f"FATAL: Cannot open camera — {e}\n"
+                    "  - Check that a webcam is connected and not in use by another app.\n"
+                    "  - To run without a camera (browser-based), set \"colab_mode\": true in config/config.json."
+                )
+                print(msg, file=sys.stderr)
+            elif self._logger:
                 self._logger.critical("startup_failed", error=str(e), module="orchestrator")
             else:
                 print(f"FATAL: Startup failed: {e}", file=sys.stderr)

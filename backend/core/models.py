@@ -68,8 +68,8 @@ class Landmark:
 class Frame:
     """A single video frame with metadata."""
     frame_id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    bgr_data=None  # Will be set to np.ndarray at runtime
-    rgb_data=None  # Will be set to np.ndarray at runtime
+    bgr_data: object = field(default=None)   # np.ndarray at runtime
+    rgb_data: object = field(default=None)   # np.ndarray at runtime
     timestamp: datetime = field(default_factory=datetime.utcnow)
     width: int = 640
     height: int = 480
