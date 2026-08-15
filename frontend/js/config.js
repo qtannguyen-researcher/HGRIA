@@ -11,16 +11,16 @@ const CONFIG = {
         if (window.HGRIA_BACKEND_URL) {
             return window.HGRIA_BACKEND_URL;
         }
-        // 2. localStorage
-        const stored = localStorage.getItem('hgria_backend_url');
-        if (stored) {
-            return stored;
-        }
-        // 3. query param ?server=
+        // 2. query param ?server=
         const params = new URLSearchParams(window.location.search);
         const serverParam = params.get('server');
         if (serverParam) {
             return serverParam;
+        }
+        // 3. localStorage
+        const stored = localStorage.getItem('hgria_backend_url');
+        if (stored) {
+            return stored;
         }
         // 4. Default to localhost
         return 'http://localhost:5000';

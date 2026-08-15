@@ -4,7 +4,7 @@
     "frame_width": 640,
     "frame_height": 480,
     "target_fps": 30,
-    "colab_mode": false
+    "colab_mode": true
   },
   "mediapipe": {
     "min_detection_confidence": 0.7,
