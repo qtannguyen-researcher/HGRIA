@@ -1,0 +1,7 @@
+# Exclude backend — not deployed to Vercel (runs locally)
+backend/
+config/
+dynamic_gestures/
+notebooks/
+requirements.txt
+*.py
