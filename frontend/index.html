@@ -102,6 +102,12 @@
         <!-- Main Game Area -->
         <main class="game-area">
             <canvas id="game-canvas" class="game-canvas"></canvas>
+
+            <!-- Picture-in-picture camera preview -->
+            <div id="camera-pip" class="camera-pip pip-hidden">
+                <video id="camera-preview" class="camera-preview" autoplay muted playsinline></video>
+                <div id="camera-pip-label" class="camera-pip-label">CAM</div>
+            </div>
         </main>
         
         <!-- HUD Overlay -->

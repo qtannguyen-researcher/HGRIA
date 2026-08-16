@@ -1,6 +1,7 @@
 /**
  * HGRIA Webcam Bridge
- * Captures webcam frames and sends them to the backend server
+ * Captures webcam frames and sends them to the backend server.
+ * Reuses the #camera-preview element from the DOM for the PiP display.
  */
 class WebcamBridge {
     #videoEl;
@@ -9,7 +10,7 @@ class WebcamBridge {
     #backendUrl;
     #intervalId;
     #running = false;
-    
+
     /**
      * Start capturing webcam frames
      * @param {string} backendUrl - Backend server URL
@@ -18,31 +19,37 @@ class WebcamBridge {
         if (this.#running) {
             return;
         }
-        
+
         this.#backendUrl = backendUrl;
-        
-        // Create hidden video and canvas elements
-        this.#videoEl = document.createElement('video');
-        this.#videoEl.style.display = 'none';
-        this.#videoEl.width = 640;
-        this.#videoEl.height = 480;
-        document.body.appendChild(this.#videoEl);
-        
+
+        // Reuse the visible PiP video element already in the DOM
+        this.#videoEl = document.getElementById('camera-preview');
+        if (!this.#videoEl) {
+            console.warn('WebcamBridge: #camera-preview element not found');
+            return;
+        }
+
         this.#canvasEl = document.createElement('canvas');
         this.#canvasEl.width = 640;
         this.#canvasEl.height = 480;
-        
+
         try {
             // Request webcam access
             this.#stream = await navigator.mediaDevices.getUserMedia({
                 video: { width: 640, height: 480 }
             });
-            
+
             this.#videoEl.srcObject = this.#stream;
             await this.#videoEl.play();
-            
+
+            // Show the PiP container now that we have a stream
+            const pip = document.getElementById('camera-pip');
+            if (pip) {
+                pip.classList.remove('pip-hidden');
+            }
+
             this.#running = true;
-            
+
             // Start sending frames at 30 FPS
             this.#intervalId = setInterval(
                 this.#sendFrame.bind(this),
@@ -55,7 +62,7 @@ class WebcamBridge {
             }));
         }
     }
-    
+
     /**
      * Stop capturing webcam frames
      */
@@ -64,20 +71,25 @@ class WebcamBridge {
             clearInterval(this.#intervalId);
             this.#intervalId = null;
         }
-        
+
         if (this.#stream) {
             this.#stream.getTracks().forEach(track => track.stop());
             this.#stream = null;
         }
-        
+
         if (this.#videoEl) {
-            this.#videoEl.remove();
-            this.#videoEl = null;
+            this.#videoEl.srcObject = null;
         }
-        
+
+        // Hide PiP
+        const pip = document.getElementById('camera-pip');
+        if (pip) {
+            pip.classList.add('pip-hidden');
+        }
+
         this.#running = false;
     }
-    
+
     /**
      * Check if webcam bridge is running
      * @returns {boolean}
@@ -85,7 +97,7 @@ class WebcamBridge {
     isRunning() {
         return this.#running;
     }
-    
+
     /**
      * Send a single frame to the backend
      * @private
@@ -94,11 +106,15 @@ class WebcamBridge {
         if (!this.#running || !this.#videoEl || !this.#canvasEl) {
             return;
         }
-        
+
         try {
             const ctx = this.#canvasEl.getContext('2d');
-            ctx.drawImage(this.#videoEl, 0, 0, 640, 480);
-            
+            // Draw mirrored frame — undo the CSS scaleX(-1) so backend gets the unflipped image
+            ctx.save();
+            ctx.scale(-1, 1);
+            ctx.drawImage(this.#videoEl, -640, 0, 640, 480);
+            ctx.restore();
+
             const blob = await new Promise((resolve, reject) => {
                 this.#canvasEl.toBlob(
                     (b) => b ? resolve(b) : reject(new Error('Canvas toBlob failed')),
@@ -106,7 +122,7 @@ class WebcamBridge {
                     0.7
                 );
             });
-            
+
             const reader = new FileReader();
             reader.onload = async () => {
                 try {
