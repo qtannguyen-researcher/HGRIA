@@ -1,5 +1,6 @@
 """Flask application factory for the HGRIA server."""
 
+import logging
 import queue
 from typing import Any, Optional
 
@@ -10,6 +11,20 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from backend.core.models import Session
 from backend.core.state_manager import StateManager
+
+
+def _silence_noisy_loggers() -> None:
+    """Suppress werkzeug access log, Flask startup banner, and engine.io chatter.
+
+    Werkzeug logs every HTTP request at INFO level — at 30 fps this floods
+    the notebook output.  We keep ERROR so real server errors still surface.
+    The 'flask.app' logger emits "* Serving Flask app" and "* Debug mode: off",
+    which are also noise in a notebook context.
+    """
+    logging.getLogger("werkzeug").setLevel(logging.ERROR)
+    logging.getLogger("flask.app").setLevel(logging.ERROR)
+    logging.getLogger("engineio").setLevel(logging.ERROR)
+    logging.getLogger("socketio").setLevel(logging.ERROR)
 
 
 def create_app(
@@ -32,6 +47,8 @@ def create_app(
     Returns:
         Tuple of (Flask app, SocketIO instance)
     """
+    _silence_noisy_loggers()
+
     app = Flask(__name__, static_folder="../frontend", static_url_path="")
 
     # Enable CORS
