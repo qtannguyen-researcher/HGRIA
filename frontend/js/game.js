@@ -11,9 +11,11 @@ const SPEED_BOOST_MULTIPLIER = 1.5;
 const SPEED_BOOST_DURATION_MS = 2000;
 
 /**
- * Gesture → game action dispatch table
+ * Gesture → game action dispatch table.
+ * Includes both static (MediaPipe) and dynamic (OC-SORT + ONNX) gestures.
  */
 const COMMAND_HANDLERS = {
+    // ── Static gestures ────────────────────────────────────────────────────
     'point_left': (state) => {
         state.playerVx = -PLAYER_SPEED;
     },
@@ -45,6 +47,69 @@ const COMMAND_HANDLERS = {
     'pinch': (state) => {
         state.zoomLevel = Math.min(state.zoomLevel * 1.1, 3.0);
     },
+
+    // ── Dynamic gestures: swipes ───────────────────────────────────────────
+    'SWIPE_LEFT':      (state) => { state.playerVx = -PLAYER_SPEED; },
+    'SWIPE_RIGHT':     (state) => { state.playerVx = PLAYER_SPEED; },
+    'SWIPE_UP':        (state) => {
+        if (!state.isJumping) {
+            state.jumpVelocity = JUMP_FORCE;
+            state.isJumping = true;
+        }
+    },
+    'SWIPE_DOWN':      (state) => { state.playerVx = 0; },
+
+    // Two-finger swipes – higher speed
+    'SWIPE_LEFT2':     (state) => { state.playerVx = -PLAYER_SPEED * 1.5; },
+    'SWIPE_RIGHT2':    (state) => { state.playerVx = PLAYER_SPEED * 1.5; },
+    'SWIPE_UP2':       (state) => {
+        if (!state.isJumping) {
+            state.jumpVelocity = JUMP_FORCE * 1.3;
+            state.isJumping = true;
+        }
+    },
+    'SWIPE_DOWN2':     (state) => { state.playerVx = 0; },
+
+    // Three-finger swipes – maximum speed
+    'SWIPE_LEFT3':     (state) => { state.playerVx = -PLAYER_SPEED * 2; },
+    'SWIPE_RIGHT3':    (state) => { state.playerVx = PLAYER_SPEED * 2; },
+    'SWIPE_UP3':       (state) => {
+        if (!state.isJumping) {
+            state.jumpVelocity = JUMP_FORCE * 1.6;
+            state.isJumping = true;
+        }
+    },
+    'SWIPE_DOWN3':     (state) => { state.playerVx = 0; },
+
+    // ── Dynamic gestures: fast swipes ──────────────────────────────────────
+    'FAST_SWIPE_UP':   (state) => {
+        state.jumpVelocity = JUMP_FORCE * 2;
+        state.isJumping = true;
+    },
+    'FAST_SWIPE_DOWN': (state) => {
+        state.playerVx = 0;
+        state.jumpVelocity = -JUMP_FORCE;
+    },
+
+    // ── Dynamic gestures: zoom ──────────────────────────────────────────────
+    'ZOOM_IN':  (state) => {
+        state.zoomLevel = Math.min(state.zoomLevel * 1.15, 3.0);
+    },
+    'ZOOM_OUT': (state) => {
+        state.zoomLevel = Math.max(state.zoomLevel / 1.15, 0.5);
+    },
+
+    // ── Dynamic gestures: drag & drop ──────────────────────────────────────
+    'DRAG':  (state) => { state.dragging = true; },
+    'DROP':  (state) => { state.dragging = false; },
+    'DRAG2': (state) => { state.dragging = true; },
+    'DROP2': (state) => { state.dragging = false; },
+    'DRAG3': (state) => { state.dragging = true; },
+    'DROP3': (state) => { state.dragging = false; },
+
+    // ── Dynamic gestures: tap ───────────────────────────────────────────────
+    'TAP':        (state) => { state.confirmPending = true; },
+    'DOUBLE_TAP': (state) => { state.selectPending = true; },
 };
 
 /**

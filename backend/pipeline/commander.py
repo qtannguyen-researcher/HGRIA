@@ -11,7 +11,9 @@ from backend.core.models import Command, Session
 
 
 # Gesture → Command mapping
+# Includes both static (MediaPipe-based) and dynamic (OC-SORT + ONNX) gestures.
 COMMAND_MAP: Dict[str, Dict[str, Any]] = {
+    # ── Static gestures ────────────────────────────────────────────────────
     "open_palm":   {"command_type": "MOVE",   "command_value": {"direction": "stop"}},
     "closed_fist": {"command_type": "ACTION", "command_value": {"action": "speed_boost"}},
     "point_left":  {"command_type": "MOVE",   "command_value": {"direction": "left"}},
@@ -21,6 +23,44 @@ COMMAND_MAP: Dict[str, Dict[str, Any]] = {
     "stop":        {"command_type": "SYSTEM", "command_value": {"action": "pause"}},
     "pinch":       {"command_type": "UI",     "command_value": {"action": "zoom_in"}},
     "ok":          {"command_type": "UI",     "command_value": {"action": "confirm"}},
+
+    # ── Dynamic gestures: single-finger swipes ──────────────────────────────
+    "SWIPE_LEFT":        {"command_type": "MOVE",   "command_value": {"direction": "left"}},
+    "SWIPE_RIGHT":       {"command_type": "MOVE",   "command_value": {"direction": "right"}},
+    "SWIPE_UP":          {"command_type": "MOVE",   "command_value": {"direction": "up"}},
+    "SWIPE_DOWN":        {"command_type": "MOVE",   "command_value": {"direction": "down"}},
+
+    # ── Dynamic gestures: two-finger swipes (thumb variant) ────────────────
+    "SWIPE_LEFT2":       {"command_type": "MOVE",   "command_value": {"direction": "left",  "fingers": 2}},
+    "SWIPE_RIGHT2":      {"command_type": "MOVE",   "command_value": {"direction": "right", "fingers": 2}},
+    "SWIPE_UP2":         {"command_type": "MOVE",   "command_value": {"direction": "up",    "fingers": 2}},
+    "SWIPE_DOWN2":       {"command_type": "MOVE",   "command_value": {"direction": "down",  "fingers": 2}},
+
+    # ── Dynamic gestures: three-finger swipes ──────────────────────────────
+    "SWIPE_LEFT3":       {"command_type": "MOVE",   "command_value": {"direction": "left",  "fingers": 3}},
+    "SWIPE_RIGHT3":      {"command_type": "MOVE",   "command_value": {"direction": "right", "fingers": 3}},
+    "SWIPE_UP3":         {"command_type": "MOVE",   "command_value": {"direction": "up",    "fingers": 3}},
+    "SWIPE_DOWN3":       {"command_type": "MOVE",   "command_value": {"direction": "down",  "fingers": 3}},
+
+    # ── Dynamic gestures: fast swipes ──────────────────────────────────────
+    "FAST_SWIPE_UP":     {"command_type": "ACTION", "command_value": {"action": "fast_up"}},
+    "FAST_SWIPE_DOWN":   {"command_type": "ACTION", "command_value": {"action": "fast_down"}},
+
+    # ── Dynamic gestures: zoom ──────────────────────────────────────────────
+    "ZOOM_IN":           {"command_type": "UI",     "command_value": {"action": "zoom_in"}},
+    "ZOOM_OUT":          {"command_type": "UI",     "command_value": {"action": "zoom_out"}},
+
+    # ── Dynamic gestures: drag & drop ──────────────────────────────────────
+    "DRAG":              {"command_type": "ACTION", "command_value": {"action": "drag"}},
+    "DROP":              {"command_type": "ACTION", "command_value": {"action": "drop"}},
+    "DRAG2":             {"command_type": "ACTION", "command_value": {"action": "drag",  "variant": 2}},
+    "DROP2":             {"command_type": "ACTION", "command_value": {"action": "drop",  "variant": 2}},
+    "DRAG3":             {"command_type": "ACTION", "command_value": {"action": "drag",  "variant": 3}},
+    "DROP3":             {"command_type": "ACTION", "command_value": {"action": "drop",  "variant": 3}},
+
+    # ── Dynamic gestures: tap ───────────────────────────────────────────────
+    "TAP":               {"command_type": "UI",     "command_value": {"action": "tap"}},
+    "DOUBLE_TAP":        {"command_type": "UI",     "command_value": {"action": "double_tap"}},
 }
 
 

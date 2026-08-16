@@ -40,6 +40,7 @@ const CONFIG = {
 
 // ===== Gesture Guide Map =====
 const GESTURE_GUIDE = {
+    // ── Static gestures ──────────────────────────────────────────────────
     'open_palm': {
         name: 'Open Palm',
         description: 'Stop/Brake',
@@ -94,13 +95,40 @@ const GESTURE_GUIDE = {
         icon: 'assets/gestures/ok.png',
         command: 'confirm',
     },
+
+    // ── Dynamic gestures ─────────────────────────────────────────────────
+    'SWIPE_LEFT':      { name: 'Swipe Left',       description: 'Move Left',       command: 'left' },
+    'SWIPE_RIGHT':     { name: 'Swipe Right',      description: 'Move Right',      command: 'right' },
+    'SWIPE_UP':        { name: 'Swipe Up',         description: 'Move Up',         command: 'up' },
+    'SWIPE_DOWN':      { name: 'Swipe Down',       description: 'Move Down',       command: 'down' },
+    'SWIPE_LEFT2':     { name: 'Swipe Left ×2',    description: 'Move Left (2)',   command: 'left' },
+    'SWIPE_RIGHT2':    { name: 'Swipe Right ×2',   description: 'Move Right (2)',  command: 'right' },
+    'SWIPE_UP2':       { name: 'Swipe Up ×2',      description: 'Move Up (2)',     command: 'up' },
+    'SWIPE_DOWN2':     { name: 'Swipe Down ×2',    description: 'Move Down (2)',   command: 'down' },
+    'SWIPE_LEFT3':     { name: 'Swipe Left ×3',    description: 'Move Left (3)',   command: 'left' },
+    'SWIPE_RIGHT3':    { name: 'Swipe Right ×3',   description: 'Move Right (3)',  command: 'right' },
+    'SWIPE_UP3':       { name: 'Swipe Up ×3',      description: 'Move Up (3)',     command: 'up' },
+    'SWIPE_DOWN3':     { name: 'Swipe Down ×3',    description: 'Move Down (3)',   command: 'down' },
+    'FAST_SWIPE_UP':   { name: 'Fast Swipe Up',    description: 'Fast Up',         command: 'fast_up' },
+    'FAST_SWIPE_DOWN': { name: 'Fast Swipe Down',  description: 'Fast Down',       command: 'fast_down' },
+    'ZOOM_IN':         { name: 'Zoom In',           description: 'Zoom In',         command: 'zoom_in' },
+    'ZOOM_OUT':        { name: 'Zoom Out',          description: 'Zoom Out',        command: 'zoom_out' },
+    'DRAG':            { name: 'Drag',              description: 'Drag Object',     command: 'drag' },
+    'DROP':            { name: 'Drop',              description: 'Drop Object',     command: 'drop' },
+    'DRAG2':           { name: 'Drag (grip)',        description: 'Drag (grip)',     command: 'drag' },
+    'DROP2':           { name: 'Drop (grip)',        description: 'Drop (grip)',     command: 'drop' },
+    'DRAG3':           { name: 'Drag (ok)',          description: 'Drag (ok)',       command: 'drag' },
+    'DROP3':           { name: 'Drop (ok)',          description: 'Drop (ok)',       command: 'drop' },
+    'TAP':             { name: 'Tap',               description: 'Tap',             command: 'tap' },
+    'DOUBLE_TAP':      { name: 'Double Tap',        description: 'Double Tap',      command: 'double_tap' },
 };
 
 // ===== Valid Gesture Names =====
 const VALID_GESTURE_NAMES = Object.keys(GESTURE_GUIDE);
 
 // ===== Safe Gesture Name Regex =====
-const SAFE_GESTURE_RE = /^[a-z0-9_-]{1,32}$/;
+// Allows lowercase static names (e.g. open_palm) and uppercase dynamic events (e.g. SWIPE_LEFT)
+const SAFE_GESTURE_RE = /^[a-zA-Z0-9_-]{1,32}$/;
 
 /**
  * Validate and sanitize a gesture name

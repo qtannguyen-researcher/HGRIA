@@ -1,6 +1,321 @@
 # HGRIA - Hand Gesture Recognition for Interactive Applications
 
-A real-time hand gesture recognition system using MediaPipe for gesture detection, Flask-SocketIO for WebSocket communication, and a browser-based HTML5 Canvas game as the frontend.
+A real-time hand gesture recognition system that combines two complementary recognition paths:
+
+- **Static path** — MediaPipe Hands + geometric rule-based classifier (9 posture gestures)
+- **Dynamic path** — ONNX hand detector + OC-SORT tracker + sequence-based action detector (24 motion events)
+
+Both paths run in parallel on every frame. Dynamic events take priority when both fire simultaneously.
+
+## Features
+
+- **33 Gestures total**: 9 static postures + 24 dynamic motion events (swipes, zoom, drag/drop, tap)
+- **Real-time Processing**: Sub-150ms end-to-end latency
+- **OC-SORT Tracking**: Kalman filter + velocity-consistent association for robust multi-frame gesture detection
+- **WebSocket Communication**: Flask-SocketIO for bidirectional events
+- **Google Colab Support**: Webcam bridge via JavaScript
+- **Keyboard Fallback**: Arrow keys, Space, P, S for testing without camera
+- **Graceful degradation**: Dynamic path is optional — system runs on static-only if ONNX models are missing
+
+## Prerequisites
+
+- Python 3.8+
+- Webcam (optional, keyboard fallback available)
+- Google Colab (for cloud deployment)
+
+## Quick Start
+
+### 1. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Configure
+
+Edit `config/config.json`. To enable dynamic gestures:
+
+```json
+"dynamic_gestures": {
+    "enabled": true,
+    "detection_model_path": "dynamic_gestures/models/hand_detector.onnx",
+    "classification_model_path": "dynamic_gestures/models/crops_classifier.onnx"
+}
+```
+
+Set `"enabled": false` (or remove the section) to run static-only.
+
+### 3. Run the Server
+
+```bash
+python -m backend.main
+```
+
+### 4. Open the Frontend
+
+```
+http://localhost:5000
+```
+
+## Gesture Reference
+
+### Static Gestures (MediaPipe)
+
+| Gesture | Command | Description |
+|---------|---------|-------------|
+| `open_palm` | MOVE stop | Stop/Brake |
+| `closed_fist` | ACTION speed_boost | Speed Boost |
+| `point_left` | MOVE left | Move Left |
+| `point_right` | MOVE right | Move Right |
+| `thumb_up` | ACTION jump | Jump |
+| `victory` | UI select | Select |
+| `stop` | SYSTEM pause | Pause |
+| `pinch` | UI zoom_in | Zoom In |
+| `ok` | UI confirm | Confirm |
+
+### Dynamic Gestures (OC-SORT + ONNX)
+
+| Event | Command | Trigger |
+|-------|---------|---------|
+| `SWIPE_LEFT/RIGHT/UP/DOWN` | MOVE | 1-finger directional swipe |
+| `SWIPE_LEFT2/RIGHT2/UP2/DOWN2` | MOVE | thumb directional swipe |
+| `SWIPE_LEFT3/RIGHT3/UP3/DOWN3` | MOVE | 2-finger directional swipe |
+| `FAST_SWIPE_UP/DOWN` | ACTION | fast point swipe |
+| `ZOOM_IN / ZOOM_OUT` | UI | fist↔pinch expansion/contraction |
+| `DRAG / DROP` | ACTION | grabbing hold → open |
+| `DRAG2 / DROP2` | ACTION | grip hold → heart |
+| `DRAG3 / DROP3` | ACTION | ok hold → heart |
+| `TAP / DOUBLE_TAP` | UI | point tap |
+
+## Project Structure
+
+```
+HGRIA/
+├── backend/
+│   ├── core/
+│   │   ├── models.py           # Data models
+│   │   ├── errors.py           # Exception hierarchy
+│   │   ├── configuration.py    # Configuration manager
+│   │   └── state_manager.py    # FSM implementation
+│   ├── pipeline/
+│   │   ├── camera.py           # Camera capture
+│   │   ├── preprocessor.py     # Frame preprocessing
+│   │   ├── detector.py         # MediaPipe hand detection (static path)
+│   │   ├── extractor.py        # Landmark extraction
+│   │   ├── classifier.py       # Geometric gesture classifier
+│   │   ├── filter.py           # Noise & temporal filters
+│   │   ├── cooldown.py         # Cooldown manager
+│   │   ├── commander.py        # Command generation & mapping
+│   │   ├── pipeline_runner.py  # Pipeline orchestration (static + dynamic)
+│   │   ├── dynamic_recognizer.py # Dynamic gesture adapter
+│   │   └── dynamic/            # OC-SORT + ONNX package
+│   │       ├── main_controller.py  # OC-SORT tracker + ONNX inference
+│   │       ├── onnx_models.py      # HandDetection + HandClassification
+│   │       ├── ocsort/             # Kalman filter + association
+│   │       └── utils/              # Hand, Deque, Event, HandPosition
+│   ├── routes/
+│   │   ├── health.py           # GET /health
+│   │   ├── config_api.py       # GET/PUT /api/config
+│   │   └── session.py          # GET/DELETE /api/session
+│   ├── websocket/
+│   │   └── handlers.py         # SocketIO handlers
+│   ├── utils/
+│   │   ├── logger.py           # Structured JSON logger
+│   │   └── geometry.py         # Geometric helpers
+│   ├── app.py                  # Flask application factory
+│   └── main.py                 # System orchestrator
+├── dynamic_gestures/           # Original dynamic gestures repo (source)
+│   └── models/                 # ONNX model weights
+│       ├── hand_detector.onnx
+│       └── crops_classifier.onnx
+├── frontend/
+│   ├── index.html
+│   ├── js/
+│   │   ├── config.js           # Config + gesture guide (static + dynamic)
+│   │   ├── game.js             # Game engine + command handlers
+│   │   ├── websocket.js        # Socket.IO client
+│   │   └── ...
+│   └── assets/
+├── config/
+│   └── config.json
+├── requirements.txt
+└── README.md
+```
+
+## Configuration
+
+### Camera
+
+```json
+"camera": {
+    "index": 0,
+    "frame_width": 640,
+    "frame_height": 480,
+    "target_fps": 30,
+    "colab_mode": true
+}
+```
+
+### Gesture Recognition (static path)
+
+```json
+"gesture_recognition": {
+    "confidence_threshold": 0.75,
+    "smoothing_window_size": 5,
+    "noise_filter_blur_threshold": 100,
+    "dominant_hand": "Right"
+}
+```
+
+### Dynamic Gestures (dynamic path)
+
+```json
+"dynamic_gestures": {
+    "enabled": true,
+    "detection_model_path": "dynamic_gestures/models/hand_detector.onnx",
+    "classification_model_path": "dynamic_gestures/models/crops_classifier.onnx",
+    "max_age": 30,
+    "min_hits": 3,
+    "iou_threshold": 0.3,
+    "maxlen": 30,
+    "min_frames": 20
+}
+```
+
+### Per-Gesture Cooldowns (ms)
+
+Applies to both static and dynamic gesture names:
+
+```json
+"gesture_cooldowns_ms": {
+    "open_palm": 500,
+    "SWIPE_LEFT": 400,
+    "ZOOM_IN": 500,
+    "TAP": 300,
+    ...
+}
+```
+
+### Hot-Reloadable Fields
+
+- `gesture_recognition.confidence_threshold`
+- `gesture_recognition.smoothing_window_size`
+- `logging.level`
+- `debug.debug_mode`
+- `gesture_cooldowns_ms.*`
+
+## API Endpoints
+
+### GET /health
+
+```bash
+curl http://localhost:5000/health
+```
+
+### GET /api/config
+
+```bash
+curl http://localhost:5000/api/config
+```
+
+### PUT /api/config
+
+```bash
+curl -X PUT http://localhost:5000/api/config \
+    -H "Content-Type: application/json" \
+    -d '{"gesture_recognition.confidence_threshold": 0.85}'
+```
+
+### GET /api/session
+
+```bash
+curl http://localhost:5000/api/session
+```
+
+### POST /api/frame (Colab Mode)
+
+```python
+import base64, requests
+with open('frame.jpg', 'rb') as f:
+    b64 = base64.b64encode(f.read()).decode()
+requests.post('http://localhost:5000/api/frame', json={'image': b64})
+```
+
+## WebSocket Events
+
+### Client → Server
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `client_ready` | `{client_id, user_agent}` | Client initialization |
+| `pause_pipeline` | — | Pause gesture detection |
+| `resume_pipeline` | — | Resume gesture detection |
+| `ping` | `{timestamp}` | Latency measurement |
+
+### Server → Client
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `server_info` | `{session_id, version, config}` | Server info on connect |
+| `gesture_command` | `{command_id, gesture_name, command_type, command_value, confidence}` | Gesture command |
+| `system_state_change` | `{old_state, new_state}` | State machine transition |
+| `system_error` | `{error_code, message, recoverable}` | Error notification |
+| `pong` | `{timestamp}` | Ping response |
+
+## Keyboard Controls
+
+| Key | Gesture |
+|-----|---------|
+| Arrow Left | point_left |
+| Arrow Right | point_right |
+| Space | thumb_up (Jump) |
+| P | stop (Pause) |
+| S | closed_fist (Speed Boost) |
+| Enter | ok (Confirm) |
+| Escape | victory (Select) |
+| +/= | pinch (Zoom In) |
+
+## Deploying on Colab + ngrok
+
+1. Upload project to Google Drive at `/content/drive/MyDrive/HGRIA/`
+2. Install dependencies: `pip install -r requirements.txt`
+3. Set `colab_mode: true` in `config/config.json`
+4. Start ngrok: `from pyngrok import ngrok; tunnel = ngrok.connect(5000)`
+5. Run server: `python -m backend.main`
+6. Open frontend with `?server=<NGROK_URL>`
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| Dynamic gestures not firing | Check `dynamic_gestures.enabled: true` in config, verify ONNX model paths |
+| `FileNotFoundError` for ONNX models | Set correct paths relative to working directory in `config.json` |
+| `onnxruntime` not found | `pip install onnxruntime==1.13.1` |
+| `filterpy` not found | `pip install filterpy==1.4.5` |
+| Camera not detected | Set `colab_mode: true` or check camera index |
+| Port in use | Change `server.port` in config or `kill -9 $(lsof -ti:5000)` |
+
+## Adding Custom Static Gestures
+
+Add to `config/config.json`:
+
+```json
+"custom_gestures": [{
+    "name": "my_gesture",
+    "confidence_threshold": 0.80,
+    "cooldown_ms": 500,
+    "command_type": "ACTION",
+    "command_value": {"action": "custom"},
+    "rules": [
+        {"type": "finger_extended", "parameters": {"tip": 8, "pip": 6}}
+    ]
+}]
+```
+
+## License
+
+MIT License
+
 
 ## Features
 

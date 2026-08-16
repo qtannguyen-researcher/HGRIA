@@ -80,3 +80,10 @@ Thumbs.db
 *.avi
 *.mp4
 *.webm
+
+# ONNX model weights are tracked (required for dynamic gesture recognition)
+# Add !*.onnx override here if needed:
+# !dynamic_gestures/models/*.onnx
+
+#
+.kiro
