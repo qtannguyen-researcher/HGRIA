@@ -1,336 +1,378 @@
 /**
- * HGRIA Game Engine
- * Game loop with physics and input processing
+ * HGRIA Game Engine — Obstacle Runner
+ *
+ * Mechanic overview
+ * -----------------
+ * • Player runs along a horizontal lane.
+ * • Obstacles (blocks) spawn from the right and scroll left.
+ * • Gesture / keyboard commands:
+ *     point_left / SWIPE_LEFT* → move player left
+ *     point_right / SWIPE_RIGHT* → move player right
+ *     thumb_up / SWIPE_UP* / FAST_SWIPE_UP → jump
+ *     open_palm / SWIPE_DOWN* → brake (stop horizontal movement)
+ *     closed_fist / FAST_SWIPE_DOWN → speed boost
+ *     stop / ok → pause toggle
+ *     victory / SELECT → restart after game-over
+ * • Score increases 1 pt/s while running; +5 pts per obstacle cleared.
+ * • Collision → lose 1 life (brief invincibility window prevents multiple hits).
+ * • Level increases every 10 pts, speeding up obstacles.
  */
 
-// ===== Constants =====
-const PLAYER_SPEED = 200;
-const JUMP_FORCE = 500;
-const GRAVITY = 800;
-const SPEED_BOOST_MULTIPLIER = 1.5;
-const SPEED_BOOST_DURATION_MS = 2000;
+// ── Constants ────────────────────────────────────────────────────────────────
+const PLAYER_RADIUS      = 22;
+const PLAYER_SPEED       = 220;       // px/s horizontal
+const JUMP_FORCE         = 520;       // initial upward velocity px/s
+const GRAVITY            = 900;       // px/s²
+const SPEED_BOOST_MUL    = 1.6;
+const SPEED_BOOST_MS     = 2000;
+const INVINCIBILITY_MS   = 1200;      // after a hit
+const SCORE_RATE         = 1;         // pts per second
+const SCORE_OBSTACLE_CLR = 5;        // pts per cleared obstacle
+const LEVEL_SCORE_STEP   = 10;       // pts between level-ups
+const OBSTACLE_BASE_SPEED = 180;     // px/s at level 1
+const OBSTACLE_SPEED_INC  = 30;      // px/s per level
+const OBSTACLE_SPAWN_INTERVAL_MS = 1800;
+const SPAWN_INTERVAL_MIN_MS      = 700;
 
-/**
- * Gesture → game action dispatch table.
- * Includes both static (MediaPipe) and dynamic (OC-SORT + ONNX) gestures.
- */
-const COMMAND_HANDLERS = {
-    // ── Static gestures ────────────────────────────────────────────────────
-    'point_left': (state) => {
-        state.playerVx = -PLAYER_SPEED;
-    },
-    'point_right': (state) => {
-        state.playerVx = PLAYER_SPEED;
-    },
-    'open_palm': (state) => {
-        state.playerVx = 0;
-    },
-    'thumb_up': (state) => {
-        if (!state.isJumping) {
-            state.jumpVelocity = JUMP_FORCE;
-            state.isJumping = true;
-        }
-    },
-    'closed_fist': (state) => {
-        state.speedBoostActive = true;
-        state.speedBoostEndTime = performance.now() + SPEED_BOOST_DURATION_MS;
-    },
-    'stop': (state) => {
-        state.paused = !state.paused;
-    },
-    'ok': (state) => {
-        state.confirmPending = true;
-    },
-    'victory': (state) => {
-        state.selectPending = true;
-    },
-    'pinch': (state) => {
-        state.zoomLevel = Math.min(state.zoomLevel * 1.1, 3.0);
-    },
-
-    // ── Dynamic gestures: swipes ───────────────────────────────────────────
-    'SWIPE_LEFT':      (state) => { state.playerVx = -PLAYER_SPEED; },
-    'SWIPE_RIGHT':     (state) => { state.playerVx = PLAYER_SPEED; },
-    'SWIPE_UP':        (state) => {
-        if (!state.isJumping) {
-            state.jumpVelocity = JUMP_FORCE;
-            state.isJumping = true;
-        }
-    },
-    'SWIPE_DOWN':      (state) => { state.playerVx = 0; },
-
-    // Two-finger swipes – higher speed
-    'SWIPE_LEFT2':     (state) => { state.playerVx = -PLAYER_SPEED * 1.5; },
-    'SWIPE_RIGHT2':    (state) => { state.playerVx = PLAYER_SPEED * 1.5; },
-    'SWIPE_UP2':       (state) => {
-        if (!state.isJumping) {
-            state.jumpVelocity = JUMP_FORCE * 1.3;
-            state.isJumping = true;
-        }
-    },
-    'SWIPE_DOWN2':     (state) => { state.playerVx = 0; },
-
-    // Three-finger swipes – maximum speed
-    'SWIPE_LEFT3':     (state) => { state.playerVx = -PLAYER_SPEED * 2; },
-    'SWIPE_RIGHT3':    (state) => { state.playerVx = PLAYER_SPEED * 2; },
-    'SWIPE_UP3':       (state) => {
-        if (!state.isJumping) {
-            state.jumpVelocity = JUMP_FORCE * 1.6;
-            state.isJumping = true;
-        }
-    },
-    'SWIPE_DOWN3':     (state) => { state.playerVx = 0; },
-
-    // ── Dynamic gestures: fast swipes ──────────────────────────────────────
-    'FAST_SWIPE_UP':   (state) => {
-        state.jumpVelocity = JUMP_FORCE * 2;
-        state.isJumping = true;
-    },
-    'FAST_SWIPE_DOWN': (state) => {
-        state.playerVx = 0;
-        state.jumpVelocity = -JUMP_FORCE;
-    },
-
-    // ── Dynamic gestures: zoom ──────────────────────────────────────────────
-    'ZOOM_IN':  (state) => {
-        state.zoomLevel = Math.min(state.zoomLevel * 1.15, 3.0);
-    },
-    'ZOOM_OUT': (state) => {
-        state.zoomLevel = Math.max(state.zoomLevel / 1.15, 0.5);
-    },
-
-    // ── Dynamic gestures: drag & drop ──────────────────────────────────────
-    'DRAG':  (state) => { state.dragging = true; },
-    'DROP':  (state) => { state.dragging = false; },
-    'DRAG2': (state) => { state.dragging = true; },
-    'DROP2': (state) => { state.dragging = false; },
-    'DRAG3': (state) => { state.dragging = true; },
-    'DROP3': (state) => { state.dragging = false; },
-
-    // ── Dynamic gestures: tap ───────────────────────────────────────────────
-    'TAP':        (state) => { state.confirmPending = true; },
-    'DOUBLE_TAP': (state) => { state.selectPending = true; },
-};
-
-/**
- * Keyboard → gesture mapping
- */
+// ── Keyboard map ─────────────────────────────────────────────────────────────
 const KEYBOARD_MAP = {
-    'ArrowLeft': 'point_left',
+    'ArrowLeft':  'point_left',
     'ArrowRight': 'point_right',
-    'Space': 'thumb_up',
-    'KeyP': 'stop',
-    'KeyS': 'closed_fist',
-    'Enter': 'ok',
-    'Escape': 'victory',
-    'Equal': 'pinch', // '+' key
-    'NumpadAdd': 'pinch',
+    'Space':      'thumb_up',
+    'KeyP':       'stop',
+    'KeyS':       'closed_fist',
+    'Enter':      'ok',
+    'Escape':     'victory',
+    'KeyR':       'victory',    // restart shortcut
 };
 
+// ── Command handlers ─────────────────────────────────────────────────────────
+/** Each handler mutates the private physics state object passed in. */
+const COMMAND_HANDLERS = {
+    // Static gestures
+    'point_left':   (s) => { s.vx = -PLAYER_SPEED; },
+    'point_right':  (s) => { s.vx =  PLAYER_SPEED; },
+    'open_palm':    (s) => { s.vx = 0; },
+    'thumb_up':     (s) => { if (!s.jumping) { s.vy = -JUMP_FORCE; s.jumping = true; } },
+    'closed_fist':  (s) => { s.boostEnd = performance.now() + SPEED_BOOST_MS; },
+    'stop':         (s) => { s.pauseToggle = true; },
+    'ok':           (s) => { s.pauseToggle = true; },
+    'victory':      (s) => { s.restartRequest = true; },
+    'pinch':        (s) => {},   // no-op in this mode
+
+    // Dynamic: swipes
+    'SWIPE_LEFT':   (s) => { s.vx = -PLAYER_SPEED; },
+    'SWIPE_RIGHT':  (s) => { s.vx =  PLAYER_SPEED; },
+    'SWIPE_UP':     (s) => { if (!s.jumping) { s.vy = -JUMP_FORCE;        s.jumping = true; } },
+    'SWIPE_DOWN':   (s) => { s.vx = 0; },
+    'SWIPE_LEFT2':  (s) => { s.vx = -PLAYER_SPEED * 1.5; },
+    'SWIPE_RIGHT2': (s) => { s.vx =  PLAYER_SPEED * 1.5; },
+    'SWIPE_UP2':    (s) => { if (!s.jumping) { s.vy = -JUMP_FORCE * 1.3;  s.jumping = true; } },
+    'SWIPE_DOWN2':  (s) => { s.vx = 0; },
+    'SWIPE_LEFT3':  (s) => { s.vx = -PLAYER_SPEED * 2; },
+    'SWIPE_RIGHT3': (s) => { s.vx =  PLAYER_SPEED * 2; },
+    'SWIPE_UP3':    (s) => { if (!s.jumping) { s.vy = -JUMP_FORCE * 1.6;  s.jumping = true; } },
+    'SWIPE_DOWN3':  (s) => { s.vx = 0; },
+
+    // Dynamic: fast
+    'FAST_SWIPE_UP':   (s) => { s.vy = -JUMP_FORCE * 2;  s.jumping = true; },
+    'FAST_SWIPE_DOWN': (s) => { s.vx = 0; },
+
+    // Dynamic: zoom — no direct effect in runner, swallow silently
+    'ZOOM_IN':  (s) => {},
+    'ZOOM_OUT': (s) => {},
+
+    // Dynamic: drag/drop — no-op
+    'DRAG': (s) => {}, 'DROP': (s) => {},
+    'DRAG2':(s) => {}, 'DROP2':(s) => {},
+    'DRAG3':(s) => {}, 'DROP3':(s) => {},
+
+    // Dynamic: tap
+    'TAP':        (s) => { s.pauseToggle = true; },
+    'DOUBLE_TAP': (s) => { s.restartRequest = true; },
+};
+
+// ── Obstacle factory ─────────────────────────────────────────────────────────
+/**
+ * @param {number} canvasW
+ * @param {number} groundY
+ * @param {number} level
+ * @returns {{ x, y, w, h, speed, cleared }}
+ */
+function spawnObstacle(canvasW, groundY, level) {
+    const speed = OBSTACLE_BASE_SPEED + OBSTACLE_SPEED_INC * (level - 1);
+    const h = 28 + Math.random() * 28;      // 28–56 px tall
+    const w = 22 + Math.random() * 22;      // 22–44 px wide
+    return {
+        x: canvasW + w,
+        y: groundY - h,
+        w,
+        h,
+        speed,
+        cleared: false,
+    };
+}
+
+// ── GameEngine ────────────────────────────────────────────────────────────────
 class GameEngine {
+    // External references
     #state;
     #renderer;
     #audio;
+
+    // Loop control
+    #running = false;
     #lastTime = 0;
     #accumulator = 0;
-    #running = false;
-    
-    // Physics state (not in GameState for encapsulation)
-    #playerX = 0;
-    #playerY = 0;
-    #playerVx = 0;
-    #jumpVelocity = 0;
-    #isJumping = false;
-    #speedBoostActive = false;
-    #speedBoostEndTime = 0;
-    #zoomLevel = 1.0;
-    
-    static #FIXED_STEP = 1000 / 60; // 16.7 ms
-    static #MAX_DELTA = 100; // cap to prevent spiral-of-death
-    
+    static #FIXED_STEP = 1000 / 60;
+    static #MAX_DELTA  = 100;
+
+    // Physics state — plain object, NOT stored in GameState (keeps game logic private)
+    #phys = {
+        x: 0, y: 0,
+        vx: 0, vy: 0,
+        jumping: false,
+        boostEnd: 0,
+        pauseToggle: false,
+        restartRequest: false,
+    };
+
+    // Obstacles array
+    #obstacles = [];
+    #nextSpawn  = 0;   // timestamp for next spawn
+
+    // Score accumulator (float) for sub-frame scoring
+    #scoreAccum = 0;
+
+    // Invincibility timer
+    #invincibleUntil = 0;
+
     /**
      * @param {GameState} gameState
      * @param {Renderer} renderer
      * @param {AudioManager} audioManager
      */
     constructor(gameState, renderer, audioManager) {
-        this.#state = gameState;
+        this.#state    = gameState;
         this.#renderer = renderer;
-        this.#audio = audioManager;
-        
-        // Initialize player position
-        const dims = renderer.getDimensions();
-        this.#playerX = dims.width / 2;
-        this.#playerY = dims.height * 0.7;
+        this.#audio    = audioManager;
+        this.#resetPhys();
     }
-    
-    /**
-     * Start the game loop
-     */
+
+    /** Start the game loop */
     start() {
         this.#running = true;
         this.#state.gameRunning = true;
         this.#state.paused = false;
         this.#lastTime = performance.now();
+        this.#nextSpawn = performance.now() + OBSTACLE_SPAWN_INTERVAL_MS;
         requestAnimationFrame((t) => this.#loop(t));
     }
-    
-    /**
-     * Stop the game loop
-     */
+
+    /** Stop the game loop */
     stop() {
         this.#running = false;
         this.#state.gameRunning = false;
     }
-    
-    /**
-     * Reset game state
-     */
-    reset() {
+
+    /** Return player position for renderer */
+    getPlayerPosition() {
+        return { x: this.#phys.x, y: this.#phys.y };
+    }
+
+    /** Return obstacle list for renderer */
+    getObstacles() {
+        return this.#obstacles;
+    }
+
+    /** Reset physics state to initial positions */
+    #resetPhys() {
         const dims = this.#renderer.getDimensions();
-        this.#playerX = dims.width / 2;
-        this.#playerY = dims.height * 0.7;
-        this.#playerVx = 0;
-        this.#jumpVelocity = 0;
-        this.#isJumping = false;
-        this.#speedBoostActive = false;
-        this.#zoomLevel = 1.0;
+        const groundY = dims.height * 0.85;
+        this.#phys = {
+            x: dims.width * 0.2,
+            y: groundY - PLAYER_RADIUS,
+            vx: 0,
+            vy: 0,
+            jumping: false,
+            boostEnd: 0,
+            pauseToggle: false,
+            restartRequest: false,
+        };
+        this.#obstacles = [];
+        this.#scoreAccum = 0;
+        this.#invincibleUntil = 0;
+        this.#nextSpawn = performance.now() + OBSTACLE_SPAWN_INTERVAL_MS;
+    }
+
+    /** Full game reset */
+    #doRestart() {
+        this.#resetPhys();
         this.#state.reset();
     }
-    
-    /**
-     * Main game loop
-     * @param {number} timestamp
-     */
+
+    // ── Main loop ──────────────────────────────────────────────────────────
     #loop(timestamp) {
         if (!this.#running) return;
-        
         requestAnimationFrame((t) => this.#loop(t));
-        
+
         const delta = Math.min(timestamp - this.#lastTime, GameEngine.#MAX_DELTA);
         this.#lastTime = timestamp;
-        
-        // Update FPS measurement
+
+        // Measure FPS in GameState for HUD
         this.#state.fps = Math.round(1000 / delta) || 0;
-        
-        // Process input from WebSocket queue
+
+        // Process input queue every frame regardless of pause
         this.#processInput();
-        
-        // Update physics if not paused
+
         if (!this.#state.paused && !this.#state.gameOver) {
             this.#accumulator += delta;
-            
             while (this.#accumulator >= GameEngine.#FIXED_STEP) {
-                this.#update(GameEngine.#FIXED_STEP);
+                this.#update(GameEngine.#FIXED_STEP, timestamp);
                 this.#accumulator -= GameEngine.#FIXED_STEP;
             }
         }
-        
-        // Always render
-        this.#renderer.render(this.#state);
+
+        // Render — pass engine ref so renderer can pull player + obstacles
+        this.#renderer.render(this.#state, this);
     }
-    
-    /**
-     * Process input from command queue
-     */
+
+    // ── Input processing ──────────────────────────────────────────────────
     #processInput() {
         let cmd;
         while ((cmd = this.#state.dequeueCommand()) !== null) {
             const handler = COMMAND_HANDLERS[cmd.gesture_name];
             if (handler) {
-                handler(this.#state);
+                handler(this.#phys);
                 this.#audio.play(cmd.gesture_name);
             }
         }
-        
-        // Handle pending actions
-        if (this.#state.selectPending) {
-            this.#state.selectPending = false;
-            this.reset();
+
+        // Consume flags
+        if (this.#phys.pauseToggle) {
+            this.#phys.pauseToggle = false;
+            if (!this.#state.gameOver) {
+                this.#state.paused = !this.#state.paused;
+            }
         }
-        
-        if (this.#state.confirmPending) {
-            this.#state.confirmPending = false;
-            // Confirm action
+
+        if (this.#phys.restartRequest) {
+            this.#phys.restartRequest = false;
+            if (this.#state.gameOver) {
+                this.#doRestart();
+            }
         }
     }
-    
+
+    // ── Fixed-step physics update ─────────────────────────────────────────
     /**
-     * Update game physics
-     * @param {number} dt - Delta time in ms
+     * @param {number} dt     fixed step in ms
+     * @param {number} now    current timestamp (performance.now())
      */
-    #update(dt) {
-        const dtSec = dt / 1000;
-        const dims = this.#renderer.getDimensions();
+    #update(dt, now) {
+        const dtSec  = dt / 1000;
+        const dims   = this.#renderer.getDimensions();
         const groundY = dims.height * 0.85;
-        
-        // Apply speed boost
-        let speed = this.#playerVx;
-        if (this.#speedBoostActive) {
-            if (performance.now() >= this.#speedBoostEndTime) {
-                this.#speedBoostActive = false;
-            } else {
-                speed *= SPEED_BOOST_MULTIPLIER;
-            }
-        }
-        
-        // Update horizontal position
-        this.#playerX += speed * dtSec;
-        
-        // Keep player in bounds
-        this.#playerX = Math.max(25, Math.min(dims.width - 25, this.#playerX));
-        
-        // Apply gravity
-        this.#jumpVelocity -= GRAVITY * dtSec;
-        this.#playerY -= this.#jumpVelocity * dtSec;
-        
+        const floorY  = groundY - PLAYER_RADIUS;
+
+        // Speed boost
+        const boosted = now < this.#phys.boostEnd;
+        let vx = this.#phys.vx * (boosted ? SPEED_BOOST_MUL : 1);
+        this.#state.speedBoostActive = boosted;
+
+        // Horizontal movement
+        this.#phys.x += vx * dtSec;
+        this.#phys.x  = Math.max(PLAYER_RADIUS, Math.min(dims.width - PLAYER_RADIUS, this.#phys.x));
+
+        // Vertical movement (gravity)
+        this.#phys.vy += GRAVITY * dtSec;
+        this.#phys.y  += this.#phys.vy * dtSec;
+
         // Ground collision
-        if (this.#playerY >= groundY) {
-            this.#playerY = groundY;
-            this.#jumpVelocity = 0;
-            this.#isJumping = false;
+        if (this.#phys.y >= floorY) {
+            this.#phys.y      = floorY;
+            this.#phys.vy     = 0;
+            this.#phys.jumping = false;
         }
-        
-        // Check collisions with obstacles (placeholder)
-        this.#checkCollisions();
-        
-        // Check win/loss conditions
-        this.#checkWinLoss();
+
+        // Scroll obstacles and score
+        this.#updateObstacles(dtSec, dims, groundY, now);
+
+        // Score over time
+        this.#scoreAccum += SCORE_RATE * dtSec;
+        const earnedPts = Math.floor(this.#scoreAccum);
+        if (earnedPts > 0) {
+            this.#state.score += earnedPts;
+            this.#scoreAccum  -= earnedPts;
+        }
+
+        // Level-up
+        const newLevel = Math.floor(this.#state.score / LEVEL_SCORE_STEP) + 1;
+        if (newLevel > this.#state.level) {
+            this.#state.level = newLevel;
+        }
+
+        // Spawn new obstacles
+        if (now >= this.#nextSpawn) {
+            this.#obstacles.push(spawnObstacle(dims.width, groundY, this.#state.level));
+            const interval = Math.max(
+                SPAWN_INTERVAL_MIN_MS,
+                OBSTACLE_SPAWN_INTERVAL_MS - (this.#state.level - 1) * 100
+            );
+            this.#nextSpawn = now + interval;
+        }
     }
-    
+
     /**
-     * Check collisions with obstacles
+     * Move obstacles, detect clears and collisions.
+     * @param {number} dtSec
+     * @param {{ width, height }} dims
+     * @param {number} groundY
+     * @param {number} now
      */
-    #checkCollisions() {
-        // Placeholder - collision detection logic would go here
-    }
-    
-    /**
-     * Check win/loss conditions
-     */
-    #checkWinLoss() {
-        // Lose a life if player falls below screen
-        const dims = this.#renderer.getDimensions();
-        if (this.#playerY > dims.height + 50) {
-            this.#state.lives--;
-            if (this.#state.lives <= 0) {
-                this.#state.gameOver = true;
-                this.#audio.playGameOver();
-            } else {
-                // Reset player position
-                this.#playerX = dims.width / 2;
-                this.#playerY = dims.height * 0.7;
-                this.#jumpVelocity = 0;
+    #updateObstacles(dtSec, dims, groundY, now) {
+        const invinc = now < this.#invincibleUntil;
+
+        for (const obs of this.#obstacles) {
+            obs.x -= obs.speed * dtSec;
+
+            // Clear — player has passed the right edge of the obstacle
+            if (!obs.cleared && obs.x + obs.w < this.#phys.x - PLAYER_RADIUS) {
+                obs.cleared = true;
+                this.#state.score += SCORE_OBSTACLE_CLR;
+            }
+
+            // Collision — AABB vs circle approximation
+            if (!invinc && !obs.cleared && this.#circleAABB(this.#phys.x, this.#phys.y, PLAYER_RADIUS, obs)) {
+                this.#state.lives--;
+                this.#invincibleUntil = now + INVINCIBILITY_MS;
+                this.#audio.playError();
+
+                if (this.#state.lives <= 0) {
+                    this.#state.gameOver = true;
+                    this.#audio.playGameOver();
+                }
             }
         }
+
+        // Prune off-screen obstacles
+        this.#obstacles = this.#obstacles.filter(o => o.x + o.w > -10);
     }
-    
+
     /**
-     * Get player position for renderer
-     * @returns {{ x: number, y: number }}
+     * Simple circle vs AABB collision test.
+     * @param {number} cx  circle center x
+     * @param {number} cy  circle center y
+     * @param {number} r   radius
+     * @param {{ x, y, w, h }} rect
+     * @returns {boolean}
      */
-    getPlayerPosition() {
-        return { x: this.#playerX, y: this.#playerY };
+    #circleAABB(cx, cy, r, rect) {
+        const nearX = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
+        const nearY = Math.max(rect.y, Math.min(cy, rect.y + rect.h));
+        const dx = cx - nearX;
+        const dy = cy - nearY;
+        return dx * dx + dy * dy < r * r;
     }
 }
 

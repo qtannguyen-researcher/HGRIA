@@ -98,6 +98,9 @@
         }
     </style>
     
+    <!-- Toast notification container -->
+    <div id="toast-container" role="status" aria-live="polite"></div>
+
     <div id="app" class="app-container">
         <!-- Main Game Area -->
         <main class="game-area">
@@ -116,6 +119,7 @@
                 <span id="hud-state" class="hud-state">idle</span>
                 <div class="hud-conn-status">
                     <span id="hud-conn-dot" class="conn-dot conn-dot--disconnected"></span>
+                    <span id="hud-conn-label" class="hud-conn-label">Disconnected</span>
                 </div>
             </div>
             

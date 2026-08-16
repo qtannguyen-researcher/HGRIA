@@ -30,6 +30,7 @@ class GameState {
         this.gameRunning = false;
         this.paused = false;
         this.gameOver = false;
+        this.speedBoostActive = false;
         
         // Error state
         this.errorMessage = null;
@@ -144,6 +145,7 @@ class GameState {
         this.level = 1;
         this.paused = false;
         this.gameOver = false;
+        this.speedBoostActive = false;
         this.errorMessage = null;
         this.#inputQueue = [];
     }
