@@ -12,7 +12,7 @@ class NoiseFilter:
     """Filters out low-quality predictions based on landmark and frame quality."""
 
     MAX_LOW_CONFIDENCE = 3
-    MIN_BBOX_AREA = 0.05
+    MIN_BBOX_AREA = 0.005
 
     def __init__(self, config: "ConfigurationManager", logger: "any" = None) -> None:
         """

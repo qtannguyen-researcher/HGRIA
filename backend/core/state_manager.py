@@ -110,13 +110,17 @@ class StateManager:
         old = self._state
         self._state = next_state
 
-        self._log.info(
-            "state_transition",
-            old=old.value,
-            new=next_state.value,
-            transition_event=event,
-            module="state_manager"
-        )
+        # Only log when state actually changes to avoid flooding the log
+        # with repeated no-op transitions (e.g. SEARCHING → SEARCHING on
+        # every frame that has no hand detected).
+        if old != next_state:
+            self._log.info(
+                "state_transition",
+                old=old.value,
+                new=next_state.value,
+                transition_event=event,
+                module="state_manager"
+            )
 
         if self._sio:
             self._sio.emit("system_state_change", {

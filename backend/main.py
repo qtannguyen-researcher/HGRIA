@@ -81,7 +81,8 @@ class SystemOrchestrator:
             # 9. Pipeline runner
             self._pipeline = PipelineRunner(
                 self._config, self._cmd_queue, self._state_manager,
-                camera=camera, detector=detector, logger=self._logger
+                camera=camera, detector=detector, logger=self._logger,
+                socketio=self._socketio,
             )
 
             # 10. Register signal handlers

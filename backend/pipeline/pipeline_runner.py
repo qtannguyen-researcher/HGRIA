@@ -15,6 +15,7 @@ Stage layout
 
 import queue
 import threading
+import time
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
@@ -34,6 +35,7 @@ class PipelineRunner:
         camera: Optional["CameraModule"] = None,
         detector: Any = None,
         logger: Any = None,
+        socketio: Any = None,
     ) -> None:
         """
         Initialise the pipeline runner.
@@ -45,6 +47,7 @@ class PipelineRunner:
             camera: Optional pre-created CameraModule.
             detector: Optional pre-created HandDetector.
             logger: Optional logger.
+            socketio: Optional SocketIO instance for emitting preview frames.
         """
         self._config = config
         self._command_queue = command_queue
@@ -52,8 +55,12 @@ class PipelineRunner:
         self._camera = camera
         self._detector = detector
         self._logger = logger
+        self._socketio = socketio
         self._running = False
         self._thread: Optional[threading.Thread] = None
+        # Throttle frame preview emissions to ~10 FPS to avoid flooding clients.
+        self._preview_interval = 0.1  # seconds
+        self._last_preview_time = 0.0
 
         # Lazy imports to avoid circular dependencies
         if camera is None:
@@ -158,6 +165,9 @@ class PipelineRunner:
         if frame is None:
             return
 
+        # Emit a preview frame to connected clients (throttled to ~10 FPS).
+        self._maybe_emit_preview(frame.bgr_data)
+
         # Stage 2: Preprocess (BGR → RGB + optional CLAHE)
         frame = self._preprocessor.process(frame)
 
@@ -239,6 +249,39 @@ class PipelineRunner:
                 source="dynamic" if dynamic_gesture else "static",
                 module="pipeline_runner",
             )
+
+    def _maybe_emit_preview(self, bgr_data: Any) -> None:
+        """Encode a frame as JPEG and emit it to clients via SocketIO.
+
+        Throttled to ``_preview_interval`` seconds so we do not saturate the
+        WebSocket with full-rate camera frames.  Only runs when a SocketIO
+        instance is available (i.e. not in test / offline mode).
+        """
+        if self._socketio is None or bgr_data is None:
+            return
+
+        now = time.monotonic()
+        if now - self._last_preview_time < self._preview_interval:
+            return
+
+        try:
+            import base64
+            import cv2
+
+            ok, buf = cv2.imencode(".jpg", bgr_data, [cv2.IMWRITE_JPEG_QUALITY, 60])
+            if not ok:
+                return
+
+            b64 = base64.b64encode(buf.tobytes()).decode("ascii")
+            self._socketio.emit("frame_preview", {"image": f"data:image/jpeg;base64,{b64}"})
+            self._last_preview_time = now
+        except Exception as exc:
+            if self._logger:
+                self._logger.warning(
+                    "frame_preview_error",
+                    error=str(exc),
+                    module="pipeline_runner",
+                )
 
     @property
     def camera(self) -> "CameraModule":

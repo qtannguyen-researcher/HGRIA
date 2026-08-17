@@ -63,6 +63,31 @@ class GameState {
     }
     
     /**
+     * Update the camera preview PiP with a frame received from the backend.
+     * Falls back gracefully when the DOM element is absent.
+     * @param {string} dataUrl - data:image/jpeg;base64,... string
+     */
+    updateFramePreview(dataUrl) {
+        // Use an <img> inside the PiP so we don't interfere with the live
+        // <video> element used by WebcamBridge in Colab mode.
+        let img = document.getElementById('camera-preview-img');
+        if (!img) {
+            img = document.createElement('img');
+            img.id = 'camera-preview-img';
+            img.className = 'camera-preview';
+            img.alt = 'Camera feed';
+            const pip = document.getElementById('camera-pip');
+            if (!pip) return;
+            // Hide the <video> placeholder; show our <img> instead.
+            const video = document.getElementById('camera-preview');
+            if (video) video.style.display = 'none';
+            pip.insertBefore(img, pip.firstChild);
+            pip.classList.remove('pip-hidden');
+        }
+        img.src = dataUrl;
+    }
+
+    /**
      * Update gesture display from server
      * @param {Object} data - { gesture_name, confidence }
      */

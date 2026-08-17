@@ -32,7 +32,11 @@ class LandmarkExtractor:
         ys: List[float] = []
 
         for i, lm in enumerate(mp_landmarks.landmark):
-            low_conf = lm.visibility < 0.5
+            # MediaPipe Hands does not populate `visibility` or `presence`
+            # (those are Pose landmarks fields).  Hand landmarks are always
+            # considered reliable when the overall detection confidence passes
+            # the detector threshold, so we never mark them low-confidence.
+            low_conf = False
             points.append(LandmarkPoint(
                 index=i,
                 x=lm.x,

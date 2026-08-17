@@ -101,6 +101,12 @@ class SocketClient {
                 this.#gameState.updateLatency(data.timestamp);
             }
         });
+
+        socket.on('frame_preview', (data) => {
+            if (data && data.image) {
+                this.#gameState.updateFramePreview(data.image);
+            }
+        });
     }
     
     /**
