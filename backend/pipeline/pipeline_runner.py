@@ -204,9 +204,24 @@ class PipelineRunner:
             if landmarks:
                 landmark = landmarks[0]
                 prediction = self._classifier.classify(landmark)
+                if self._logger:
+                    self._logger.debug(
+                        "classifier_result",
+                        gesture=prediction.gesture_name,
+                        confidence=round(prediction.confidence, 3),
+                        blur_score=round(frame.blur_score, 1) if hasattr(frame, "blur_score") else None,
+                        module="pipeline_runner",
+                    )
                 prediction = self._noise_filter.filter(prediction, landmark, frame)
                 if not prediction.is_filtered:
                     smoothed = self._temporal_filter.update(prediction)
+                    if self._logger and smoothed == "UNKNOWN":
+                        self._logger.debug(
+                            "temporal_filter_pending",
+                            gesture=prediction.gesture_name,
+                            buffer_size=self._temporal_filter.window_size,
+                            module="pipeline_runner",
+                        )
                     if smoothed != "UNKNOWN":
                         static_gesture = smoothed
                         static_confidence = prediction.confidence
@@ -224,7 +239,15 @@ class PipelineRunner:
         else:
             return
 
-        self._state_manager.transition("gesture_stable")
+        transitioned = self._state_manager.transition("gesture_stable")
+        if transitioned and self._logger:
+            self._logger.info(
+                "gesture_stable",
+                gesture=gesture,
+                confidence=round(confidence, 3),
+                source="dynamic" if dynamic_gesture else "static",
+                module="pipeline_runner",
+            )
 
         # Stage 5: Cooldown check
         partial = self._cooldown_manager.check(gesture, confidence)
@@ -234,19 +257,28 @@ class PipelineRunner:
         # Stage 6: Generate command
         try:
             command = self._command_generator.generate(partial)
-        except Exception:
-            # UnmappedGestureError – skip silently
+        except Exception as exc:
+            if self._logger:
+                self._logger.warning(
+                    "gesture_unmapped",
+                    gesture=gesture,
+                    error=str(exc),
+                    module="pipeline_runner",
+                )
             return
 
         self._state_manager.transition("command_emitted")
         self._command_queue.put_nowait(command)
         self._state_manager.transition("command_processed")
 
-        if self._logger and self._config.debug.log_pipeline_latency:
-            self._logger.debug(
-                "gesture_dispatched",
+        if self._logger:
+            source = "dynamic" if dynamic_gesture else "static"
+            self._logger.info(
+                "gesture_recognized",
                 gesture=gesture,
-                source="dynamic" if dynamic_gesture else "static",
+                confidence=round(confidence, 3),
+                source=source,
+                command=command.action if hasattr(command, "action") else str(command),
                 module="pipeline_runner",
             )
 

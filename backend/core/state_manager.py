@@ -110,17 +110,20 @@ class StateManager:
         old = self._state
         self._state = next_state
 
-        # Only log when state actually changes to avoid flooding the log
-        # with repeated no-op transitions (e.g. SEARCHING → SEARCHING on
-        # every frame that has no hand detected).
+        # no_hand_detected fires on every frameless frame — suppress entirely.
+        # hand_detected and gesture_stable log at INFO only on state change.
+        # All other transitions log at INFO unconditionally.
         if old != next_state:
-            self._log.info(
-                "state_transition",
-                old=old.value,
-                new=next_state.value,
-                transition_event=event,
-                module="state_manager"
-            )
+            if event == "no_hand_detected":
+                pass  # intentionally silent
+            else:
+                self._log.info(
+                    "state_transition",
+                    old=old.value,
+                    new=next_state.value,
+                    transition_event=event,
+                    module="state_manager"
+                )
 
         if self._sio:
             self._sio.emit("system_state_change", {

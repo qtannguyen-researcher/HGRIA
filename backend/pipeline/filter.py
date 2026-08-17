@@ -14,6 +14,11 @@ class NoiseFilter:
     MAX_LOW_CONFIDENCE = 3
     MIN_BBOX_AREA = 0.005
 
+    # Browser-sent JPEG frames have lower Laplacian variance than raw camera
+    # feeds because JPEG compression smooths fine-grained texture.  Use a
+    # reduced threshold in Colab mode so valid frames are not discarded.
+    _COLAB_BLUR_DIVISOR = 4
+
     def __init__(self, config: "ConfigurationManager", logger: "any" = None) -> None:
         """
         Initialize the noise filter.
@@ -22,7 +27,11 @@ class NoiseFilter:
             config: Configuration object
             logger: Optional logger
         """
-        self._blur_threshold = config.gesture_recognition.noise_filter_blur_threshold
+        base_threshold = config.gesture_recognition.noise_filter_blur_threshold
+        colab_mode = getattr(config.camera, "colab_mode", False)
+        self._blur_threshold = (
+            base_threshold // self._COLAB_BLUR_DIVISOR if colab_mode else base_threshold
+        )
         self._logger = logger
 
     def filter(self, pred: "Prediction", lm: "Landmark", frame: "Frame") -> "Prediction":
@@ -62,9 +71,9 @@ class NoiseFilter:
         return pred
 
     def _log_rejection(self, reason: str) -> None:
-        """Log a filtering rejection at DEBUG level."""
+        """Log a filtering rejection at INFO level so it's visible during debugging."""
         if self._logger:
-            self._logger.debug(
+            self._logger.info(
                 "prediction_filtered",
                 reason=reason,
                 module="noise_filter"

@@ -7,15 +7,15 @@
     "colab_mode": false
   },
   "mediapipe": {
-    "min_detection_confidence": 0.7,
+    "min_detection_confidence": 0.5,
     "min_tracking_confidence": 0.5,
     "max_num_hands": 1,
     "model_complexity": 0
   },
   "gesture_recognition": {
     "confidence_threshold": 0.75,
-    "smoothing_window_size": 5,
-    "noise_filter_blur_threshold": 100,
+    "smoothing_window_size": 3,
+    "noise_filter_blur_threshold": 30,
     "dominant_hand": "Right"
   },
   "gesture_cooldowns_ms": {

@@ -96,8 +96,12 @@ class SystemOrchestrator:
             # 12. Start ngrok if available
             public_url = self._start_ngrok()
             if public_url:
-                print(f"Server URL: http://{self._config.server.host}:{self._config.server.port}")
-                print(f"Public URL: {public_url}")
+                frontend_url = (
+                    f"https://qtannguyen-researcher.github.io/HGRIA/?server={public_url}"
+                )
+                print(f"Server URL : http://{self._config.server.host}:{self._config.server.port}")
+                print(f"Public URL : {public_url}")
+                print(f"Frontend   : {frontend_url}")
             else:
                 print(f"Server running at: http://{self._config.server.host}:{self._config.server.port}")
 

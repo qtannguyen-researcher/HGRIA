@@ -258,12 +258,15 @@ class ConfigurationManager:
             d["logging"].pop("log_file_path", None)
         return d
 
+    # Sections that must remain plain dicts (callers use dict methods on them).
+    _PLAIN_DICT_SECTIONS = frozenset({"gesture_cooldowns_ms", "custom_gestures"})
+
     def __getattr__(self, name: str) -> Any:
         if name.startswith("_"):
             raise AttributeError(name)
         if name in self._data:
             val = self._data[name]
-            if isinstance(val, dict):
+            if isinstance(val, dict) and name not in self._PLAIN_DICT_SECTIONS:
                 return _Namespace(val)
             return val
         raise AttributeError(f"No config section: {name}")

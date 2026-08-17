@@ -64,11 +64,6 @@ class HandDetector:
         results = self._hands.process(frame.rgb_data)
 
         if not results.multi_hand_landmarks:
-            if self._logger:
-                self._logger.debug(
-                    "no_hand_detected",
-                    module="hand_detector"
-                )
             return []
 
         return list(zip(

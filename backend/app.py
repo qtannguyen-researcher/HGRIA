@@ -83,6 +83,11 @@ def create_app(
     app.register_blueprint(session_bp)
 
     # Register frame endpoint for Colab mode
+    # Max allowed base64 payload: ~200 KB decoded ≈ ~270 KB base64.
+    # A 640×480 JPEG at 70 % quality is typically 20–80 KB so this gives
+    # plenty of headroom while blocking obviously malformed requests.
+    _MAX_FRAME_B64_LEN = 400_000
+
     @app.route("/api/frame", methods=["POST"])
     def receive_frame():
         """Receive base64 JPEG frame from browser (Colab mode)."""
@@ -93,6 +98,9 @@ def create_app(
         b64 = data.get("image", "")
         if not b64:
             return jsonify({"error": "Missing image data"}), 400
+
+        if len(b64) > _MAX_FRAME_B64_LEN:
+            return jsonify({"error": "Frame payload too large"}), 413
 
         try:
             import base64
@@ -134,18 +142,30 @@ def create_app(
         return response
 
     # Input sanitisation middleware
+    # NOTE: /api/frame carries a large base64 image payload and is exempt from
+    # the string-length check.  All other JSON endpoints are still validated.
+    _FRAME_ENDPOINT = "/api/frame"
+    _MAX_STRING_LEN = 512
+
     @app.before_request
     def sanitise_request():
-        """Sanitise incoming request data."""
+        """Sanitise incoming request data.
+
+        Skips the string-length check for the frame endpoint because base64
+        JPEG payloads are legitimately large (tens of kilobytes).
+        """
+        if request.path == _FRAME_ENDPOINT:
+            return  # frame endpoint validated inside receive_frame()
+
         if request.content_type == "application/json":
             data = request.get_json(silent=True) or {}
             for key, val in data.items():
-                if isinstance(val, str) and len(val) > 512:
+                if isinstance(val, str) and len(val) > _MAX_STRING_LEN:
                     return jsonify({
                         "error": {
                             "code": "INPUT_TOO_LONG",
                             "field": key,
-                            "message": "String values must be 512 characters or less"
+                            "message": f"String values must be {_MAX_STRING_LEN} characters or less"
                         }
                     }), 400
 

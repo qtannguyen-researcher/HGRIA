@@ -210,7 +210,7 @@ GESTURE_RULES: List[GestureRule] = [
             Rule("r_st_middle", "finger_extended", {"tip": 12, "pip": 10}),
             Rule("r_st_ring", "finger_extended", {"tip": 16, "pip": 14}),
             Rule("r_st_pinky", "finger_extended", {"tip": 20, "pip": 18}),
-            Rule("r_st_spread", "spread_ratio", {"target": 0.15, "tolerance": 0.10}, weight=2.0),
+            Rule("r_st_spread", "spread_ratio", {"target": 0.45, "tolerance": 0.10}, weight=2.0),
         ],
     ),
     GestureRule(
