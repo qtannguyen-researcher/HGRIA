@@ -56,8 +56,13 @@ class ColabCaptureStrategy(CaptureStrategy):
         self._store = frame_store
 
     def read(self) -> Optional[np.ndarray]:
-        """Get the latest frame from the shared store."""
-        return self._store.get_latest()
+        """Consume and return the latest frame, or None if no new frame is ready.
+
+        Uses consume semantics (read-and-clear) so the pipeline processes each
+        browser frame exactly once instead of re-running MediaPipe on stale data
+        thousands of times per second.
+        """
+        return self._store.consume()
 
     def release(self) -> None:
         """No-op for Colab mode."""
@@ -84,8 +89,20 @@ class FrameStore:
         with self._store_lock:
             self._frame = bgr
 
+    def consume(self) -> Optional[np.ndarray]:
+        """Atomically read and clear the stored frame.
+
+        Returns the frame (or None) and immediately clears the slot so the
+        pipeline will block on the next call until a new frame arrives from
+        the browser.  This ensures each JPEG is processed exactly once.
+        """
+        with self._store_lock:
+            frame = self._frame
+            self._frame = None
+            return frame
+
     def get_latest(self) -> Optional[np.ndarray]:
-        """Get the latest frame, or None if no new frame available."""
+        """Peek at the latest frame without consuming it (used by /api/debug)."""
         with self._store_lock:
             return self._frame
 
@@ -111,7 +128,28 @@ class CameraModule:
         if config.camera.colab_mode:
             self._strategy: CaptureStrategy = ColabCaptureStrategy(self._frame_store)
         else:
-            self._strategy = OpenCVCaptureStrategy(config)
+            self._strategy = self._open_local_or_fallback(config)
+
+    def _open_local_or_fallback(self, config: "ConfigurationManager") -> CaptureStrategy:
+        """Try to open the local camera; fall back to browser mode if unavailable.
+
+        This handles the common case where the camera is already in use by
+        another process (e.g. a Jupyter/Colab notebook) and the browser needs
+        to supply frames instead.
+        """
+        try:
+            return OpenCVCaptureStrategy(config)
+        except CameraInitializationError as exc:
+            import warnings
+            warnings.warn(
+                f"Local camera unavailable ({exc}). "
+                "Falling back to browser-camera mode — frames must be POSTed to /api/frame.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+            # Patch the live config so the /api/frame endpoint becomes active.
+            config._data["camera"]["colab_mode"] = True
+            return ColabCaptureStrategy(self._frame_store)
 
     def capture(self) -> Optional["Frame"]:
         """

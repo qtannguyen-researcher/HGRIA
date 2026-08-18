@@ -12,20 +12,20 @@
             crossorigin="anonymous"></script>
     
     <!-- Local JS Modules (loaded in dependency order) -->
-    <script src="js/config.js" defer></script>
-    <script src="js/state.js" defer></script>
-    <script src="js/websocket.js" defer></script>
-    <script src="js/webcam_bridge.js" defer></script>
-    <script src="js/audio.js" defer></script>
-    <script src="js/renderer.js" defer></script>
-    <script src="js/game.js" defer></script>
-    <script src="js/hud.js" defer></script>
-    <script src="js/main.js" defer></script>
+    <script src="js/config.js?v=2" defer></script>
+    <script src="js/state.js?v=2" defer></script>
+    <script src="js/websocket.js?v=2" defer></script>
+    <script src="js/webcam_bridge.js?v=2" defer></script>
+    <script src="js/audio.js?v=2" defer></script>
+    <script src="js/renderer.js?v=2" defer></script>
+    <script src="js/game.js?v=2" defer></script>
+    <script src="js/hud.js?v=2" defer></script>
+    <script src="js/main.js?v=2" defer></script>
     
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="css/main.css">
-    <link rel="stylesheet" href="css/game.css">
-    <link rel="stylesheet" href="css/hud.css">
+    <link rel="stylesheet" href="css/main.css?v=2">
+    <link rel="stylesheet" href="css/game.css?v=2">
+    <link rel="stylesheet" href="css/hud.css?v=2">
 </head>
 <body>
     <!-- Backend Setup Overlay -->
@@ -98,8 +98,111 @@
         }
     </style>
     
-    <!-- Toast notification container -->
-    <div id="toast-container" role="status" aria-live="polite"></div>
+    <!-- Debug Panel (toggle with backtick `) -->
+    <div id="debug-panel" style="
+        display:none; position:fixed; bottom:0; left:0; right:0;
+        background:rgba(0,0,0,0.92); color:#0f0; font:12px/1.4 monospace;
+        z-index:99999; padding:8px; max-height:220px; overflow-y:auto;
+        border-top:2px solid #0f0;">
+        <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;align-items:center">
+            <b style="color:#ff0">HGRIA DEBUG</b>
+            <span style="color:#aaa;font-size:10px">— CLIENT inject:</span>
+            <button onclick="window._dbgInject('point_left')"  style="background:#1a3;color:#fff;border:1px solid #383;padding:2px 6px;cursor:pointer">← Left</button>
+            <button onclick="window._dbgInject('point_right')" style="background:#1a3;color:#fff;border:1px solid #383;padding:2px 6px;cursor:pointer">→ Right</button>
+            <button onclick="window._dbgInject('thumb_up')"    style="background:#1a3;color:#fff;border:1px solid #383;padding:2px 6px;cursor:pointer">↑ Jump</button>
+            <button onclick="window._dbgInject('victory')"     style="background:#1a3;color:#fff;border:1px solid #383;padding:2px 6px;cursor:pointer">✌ Victory</button>
+            <span style="color:#aaa;font-size:10px">— SERVER emit:</span>
+            <button onclick="window._dbgServerEmit('point_left')"  style="background:#00a;color:#fff;border:1px solid #33f;padding:2px 6px;cursor:pointer">← Srv Left</button>
+            <button onclick="window._dbgServerEmit('thumb_up')"    style="background:#00a;color:#fff;border:1px solid #33f;padding:2px 6px;cursor:pointer">↑ Srv Jump</button>
+            <button onclick="window._dbgServerEmit('victory')"     style="background:#00a;color:#fff;border:1px solid #33f;padding:2px 6px;cursor:pointer">✌ Srv Victory</button>
+            <button onclick="document.getElementById('debug-log').innerHTML=''" style="background:#600;color:#fff;border:1px solid #900;padding:2px 6px;cursor:pointer">Clear</button>
+        </div>
+        <div id="debug-log"></div>
+    </div>
+
+    <script>
+    // Global error catcher — hiển thị ngay trong debug log
+    window.addEventListener('error', (e) => {
+        window._dbgLog && window._dbgLog('ERR', '#f00',
+            `${e.message} @ ${e.filename?.split('/').pop()}:${e.lineno}`);
+        console.error('HGRIA JS Error:', e.message, e.filename, e.lineno);
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+        window._dbgLog && window._dbgLog('ERR', '#f00',
+            `Unhandled promise: ${e.reason}`);
+    });
+
+    // Toggle debug panel with backtick key
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Backquote') {
+            const p = document.getElementById('debug-panel');
+            p.style.display = p.style.display === 'none' ? 'block' : 'none';
+        }
+    });
+
+    // Debug log helper
+    window._dbgLog = function(tag, color, msg) {
+        const log = document.getElementById('debug-log');
+        if (!log) return;
+        const ts = new Date().toLocaleTimeString('en', {hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+        const ms = String(Date.now() % 1000).padStart(3,'0');
+        const row = document.createElement('div');
+        row.innerHTML = `<span style="color:#888">${ts}.${ms}</span> <span style="color:${color}">[${tag}]</span> ${msg}`;
+        log.appendChild(row);
+        // Keep last 80 lines
+        while (log.children.length > 80) log.removeChild(log.firstChild);
+        log.scrollTop = log.scrollHeight;
+    };
+
+    // Inject a fake gesture_command for testing — works even before _gameState is ready
+    window._dbgInject = function(gestureName) {
+        // Try _gameState first, fall back to polling
+        const gs = window._gameState;
+        if (!gs) {
+            window._dbgLog('DBG','#fa0','_gameState not ready — retrying in 500ms');
+            setTimeout(() => window._dbgInject(gestureName), 500);
+            return;
+        }
+        const cmd = {
+            command_id:   crypto.randomUUID(),
+            gesture_name: gestureName,
+            command_type: 'DEBUG',
+            command_value: {},
+            confidence:   1.0,
+            timestamp:    new Date().toISOString(),
+        };
+        gs.enqueueCommand(cmd);
+        window._dbgLog('INJECT','#ff0', `injected: ${gestureName} — queueLen=${gs._dbgQueueLen?.() ?? '?'}`);
+    };
+
+    // Call the server's /api/test-emit to trigger a real gesture_command
+    // via WebSocket from the server side
+    window._dbgServerEmit = async function(gestureName) {
+        const baseUrl = window.HGRIA_BACKEND_URL
+            || (new URLSearchParams(location.search).get('server'))
+            || localStorage.getItem('hgria_backend_url')
+            || 'http://localhost:5000';
+        window._dbgLog('SRV','#fa0', `calling /api/test-emit for: ${gestureName}`);
+        try {
+            // Use GET with query param to avoid CORS preflight
+            const url = baseUrl + '/api/test-emit?gesture=' + encodeURIComponent(gestureName);
+            const r = await fetch(url, {
+                method: 'GET',
+                headers: { 'ngrok-skip-browser-warning': '1' },
+            });
+            const text = await r.text();
+            let json;
+            try { json = JSON.parse(text); } catch(e) {
+                window._dbgLog('SRV','#f00', `non-JSON response (ngrok page?): ${text.slice(0,120)}`);
+                return;
+            }
+            window._dbgLog('SRV', r.ok ? '#0f0' : '#f00',
+                r.ok ? `server emitted OK → gesture_command should arrive` : `server error: ${JSON.stringify(json)}`);
+        } catch(e) {
+            window._dbgLog('SRV','#f00', `fetch failed: ${e.message}`);
+        }
+    };
+    </script>
 
     <div id="app" class="app-container">
         <!-- Main Game Area -->

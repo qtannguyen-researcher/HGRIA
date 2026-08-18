@@ -16,7 +16,8 @@ Stage layout
 import queue
 import threading
 import time
-from typing import TYPE_CHECKING, Any, Optional
+from collections import deque
+from typing import TYPE_CHECKING, Any, Deque, Dict, Optional
 
 if TYPE_CHECKING:
     from backend.core.configuration import ConfigurationManager
@@ -98,6 +99,18 @@ class PipelineRunner:
         from backend.core.errors import ErrorHandler
         self._error_handler = ErrorHandler(logger, None, state_manager)
 
+        # ── Diagnostic counters (thread-safe via GIL on int increments) ───
+        self.stats: Dict[str, int] = {
+            "frames_captured": 0,
+            "frames_no_hand": 0,
+            "frames_filtered_noise": 0,
+            "frames_filtered_temporal": 0,
+            "frames_cooldown": 0,
+            "commands_sent": 0,
+        }
+        # Rolling blur scores for the last 30 frames (debug)
+        self._blur_history: Deque[float] = deque(maxlen=30)
+
     def _init_dynamic_recognizer(self, config: "ConfigurationManager") -> None:
         """Initialise the DynamicGestureRecognizer if the config section exists."""
         try:
@@ -151,19 +164,33 @@ class PipelineRunner:
         """Main pipeline loop running in a background thread."""
         while self._running:
             try:
-                self._process_frame()
+                processed = self._process_frame()
+                # In colab/browser mode frames arrive at ~30 fps.  When the
+                # store is empty (consume() returned None) sleep briefly so we
+                # don't busy-spin at thousands of iterations per second.
+                if not processed:
+                    time.sleep(0.005)
             except Exception as e:
                 if self._error_handler:
                     self._error_handler.handle(e)
 
-    def _process_frame(self) -> None:
-        """Process a single frame through all pipeline stages."""
+    def _process_frame(self) -> bool:
+        """Process a single frame through all pipeline stages.
+
+        Returns:
+            True if a frame was available and processed, False if the capture
+            returned None (no new frame yet in colab/browser mode).
+        """
         from backend.core.errors import MediaPipeError
 
         # Stage 1: Capture
         frame = self._camera.capture()
         if frame is None:
-            return
+            return False
+
+        self.stats["frames_captured"] += 1
+        if hasattr(frame, "blur_score"):
+            self._blur_history.append(frame.blur_score)
 
         # Emit a preview frame to connected clients (throttled to ~10 FPS).
         self._maybe_emit_preview(frame.bgr_data)
@@ -225,8 +252,13 @@ class PipelineRunner:
                     if smoothed != "UNKNOWN":
                         static_gesture = smoothed
                         static_confidence = prediction.confidence
+                    else:
+                        self.stats["frames_filtered_temporal"] += 1
+                else:
+                    self.stats["frames_filtered_noise"] += 1
         else:
             self._state_manager.transition("no_hand_detected")
+            self.stats["frames_no_hand"] += 1
 
         # ── Stage 4: Merge ─────────────────────────────────────────────────
         # Dynamic gesture takes priority when both are present.
@@ -237,7 +269,7 @@ class PipelineRunner:
             gesture = static_gesture
             confidence = static_confidence
         else:
-            return
+            return True  # frame processed, no gesture this cycle
 
         transitioned = self._state_manager.transition("gesture_stable")
         if transitioned and self._logger:
@@ -249,10 +281,19 @@ class PipelineRunner:
                 module="pipeline_runner",
             )
 
+        # Emit gesture_update so the HUD reflects the recognised gesture in
+        # real-time, regardless of whether a command is generated.
+        if self._socketio is not None:
+            self._socketio.emit("gesture_update", {
+                "gesture_name": gesture,
+                "confidence": round(confidence, 3),
+            })
+
         # Stage 5: Cooldown check
         partial = self._cooldown_manager.check(gesture, confidence)
         if partial is None:
-            return
+            self.stats["frames_cooldown"] += 1
+            return True  # gesture seen but rate-limited
 
         # Stage 6: Generate command
         try:
@@ -265,11 +306,20 @@ class PipelineRunner:
                     error=str(exc),
                     module="pipeline_runner",
                 )
-            return
+            return True
 
         self._state_manager.transition("command_emitted")
-        self._command_queue.put_nowait(command)
+        # Emit gesture_command directly — bypasses the queue/transmitter
+        # which depends on start_background_task timing.
+        if self._socketio is not None:
+            self._socketio.emit("gesture_command", command.to_dict())
+        # Also push to queue for any other consumers (logging, stats, etc.)
+        try:
+            self._command_queue.put_nowait(command)
+        except queue.Full:
+            pass  # queue is secondary; socket emit already done
         self._state_manager.transition("command_processed")
+        self.stats["commands_sent"] += 1
 
         if self._logger:
             source = "dynamic" if dynamic_gesture else "static"
@@ -278,9 +328,11 @@ class PipelineRunner:
                 gesture=gesture,
                 confidence=round(confidence, 3),
                 source=source,
-                command=command.action if hasattr(command, "action") else str(command),
+                command=command.command_type,
                 module="pipeline_runner",
             )
+
+        return True
 
     def _maybe_emit_preview(self, bgr_data: Any) -> None:
         """Encode a frame as JPEG and emit it to clients via SocketIO.

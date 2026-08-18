@@ -61,6 +61,11 @@ class GameState {
     dequeueCommand() {
         return this.#inputQueue.shift() ?? null;
     }
+
+    /** Debug helper — returns current queue length */
+    _dbgQueueLen() {
+        return this.#inputQueue.length;
+    }
     
     /**
      * Update the camera preview PiP with a frame received from the backend.

@@ -24,22 +24,28 @@ TRANSITION_TABLE: Dict[Tuple[SystemState, str], SystemState] = {
     (SystemState.IDLE,         "shutdown"):             SystemState.SHUTDOWN,
 
     (SystemState.SEARCHING,    "hand_detected"):        SystemState.TRACKING,
+    (SystemState.SEARCHING,    "no_hand_detected"):     SystemState.SEARCHING,   # stay searching
     (SystemState.SEARCHING,    "client_disconnected"):  SystemState.DISCONNECTED,
     (SystemState.SEARCHING,    "shutdown"):             SystemState.SHUTDOWN,
 
+    (SystemState.TRACKING,     "hand_detected"):        SystemState.TRACKING,    # stay tracking
     (SystemState.TRACKING,     "no_hand_detected"):     SystemState.SEARCHING,
     (SystemState.TRACKING,     "gesture_stable"):       SystemState.RECOGNIZING,
     (SystemState.TRACKING,     "stop_gesture"):         SystemState.PAUSED,
     (SystemState.TRACKING,     "client_disconnected"):  SystemState.DISCONNECTED,
     (SystemState.TRACKING,     "shutdown"):             SystemState.SHUTDOWN,
 
+    (SystemState.RECOGNIZING,  "hand_detected"):        SystemState.RECOGNIZING, # stay recognizing
+    (SystemState.RECOGNIZING,  "gesture_stable"):       SystemState.RECOGNIZING, # new gesture, still recognizing
     (SystemState.RECOGNIZING,  "gesture_changed"):      SystemState.TRACKING,
     (SystemState.RECOGNIZING,  "command_emitted"):      SystemState.EXECUTING,
     (SystemState.RECOGNIZING,  "stop_gesture"):         SystemState.PAUSED,
+    (SystemState.RECOGNIZING,  "no_hand_detected"):     SystemState.SEARCHING,
     (SystemState.RECOGNIZING,  "client_disconnected"):  SystemState.DISCONNECTED,
 
     (SystemState.EXECUTING,    "command_processed"):    SystemState.TRACKING,
     (SystemState.EXECUTING,    "stop_gesture"):         SystemState.PAUSED,
+    (SystemState.EXECUTING,    "hand_detected"):        SystemState.EXECUTING,   # stay executing
 
     (SystemState.PAUSED,       "stop_gesture"):         SystemState.TRACKING,
     (SystemState.PAUSED,       "client_disconnected"):  SystemState.DISCONNECTED,

@@ -20,6 +20,17 @@ class WebcamBridge {
             return;
         }
 
+        // getUserMedia requires a secure context (https or localhost).
+        if (typeof navigator.mediaDevices === 'undefined' || !navigator.mediaDevices.getUserMedia) {
+            window.dispatchEvent(new CustomEvent('webcam_denied', {
+                detail: {
+                    name: 'SecurityError',
+                    message: 'getUserMedia not available — page must be served over HTTPS or localhost',
+                }
+            }));
+            return;
+        }
+
         this.#backendUrl = backendUrl;
 
         // Reuse the visible PiP video element already in the DOM
@@ -58,7 +69,7 @@ class WebcamBridge {
         } catch (error) {
             this.#running = false;
             window.dispatchEvent(new CustomEvent('webcam_denied', {
-                detail: { message: error.message }
+                detail: { message: error.message, name: error.name }
             }));
         }
     }
@@ -109,11 +120,9 @@ class WebcamBridge {
 
         try {
             const ctx = this.#canvasEl.getContext('2d');
-            // Draw mirrored frame — undo the CSS scaleX(-1) so backend gets the unflipped image
-            ctx.save();
-            ctx.scale(-1, 1);
-            ctx.drawImage(this.#videoEl, -640, 0, 640, 480);
-            ctx.restore();
+            // Draw frame as-is — PiP preview also shows un-mirrored frame,
+            // so what the user sees matches what the backend processes.
+            ctx.drawImage(this.#videoEl, 0, 0, 640, 480);
 
             const blob = await new Promise((resolve, reject) => {
                 this.#canvasEl.toBlob(
@@ -129,7 +138,10 @@ class WebcamBridge {
                     const base64 = reader.result.split(',')[1];
                     await fetch(this.#backendUrl + '/api/frame', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'ngrok-skip-browser-warning': '1',
+                        },
                         body: JSON.stringify({ image: base64 })
                     });
                 } catch (e) {

@@ -124,10 +124,32 @@ def create_app(
     from backend.websocket.handlers import register_handlers
     register_handlers(socketio, session, state_manager, config)
 
-    # Start command transmitter drain loop in background thread
-    from backend.pipeline.commander import CommandTransmitter
-    transmitter = CommandTransmitter(socketio, command_queue, logger)
-    socketio.start_background_task(transmitter.start)
+    @app.route("/api/test-emit", methods=["GET", "POST", "OPTIONS"])
+    def test_emit():
+        """Emit a fake gesture_command to all connected clients.
+        GET  ?gesture=point_left  — no preflight, easy to test from browser
+        POST { "gesture": "point_left" }
+        """
+        if request.method == "OPTIONS":
+            return "", 204
+        # Support both GET query param and POST JSON body
+        if request.method == "GET":
+            gesture = request.args.get("gesture", "point_left")
+        else:
+            data = request.get_json(silent=True) or {}
+            gesture = data.get("gesture", "point_left")
+        import uuid, datetime
+        payload = {
+            "command_id":    str(uuid.uuid4()),
+            "session_id":    session.session_id,
+            "gesture_name":  gesture,
+            "command_type":  "MOVE",
+            "command_value": {"direction": "left"},
+            "confidence":    1.0,
+            "timestamp":     datetime.datetime.utcnow().isoformat() + "Z",
+        }
+        socketio.emit("gesture_command", payload)
+        return jsonify({"ok": True, "emitted": gesture}), 200
 
     # Security headers
     @app.after_request

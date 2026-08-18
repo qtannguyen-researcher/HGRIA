@@ -27,12 +27,16 @@ class NoiseFilter:
             config: Configuration object
             logger: Optional logger
         """
-        base_threshold = config.gesture_recognition.noise_filter_blur_threshold
-        colab_mode = getattr(config.camera, "colab_mode", False)
-        self._blur_threshold = (
-            base_threshold // self._COLAB_BLUR_DIVISOR if colab_mode else base_threshold
-        )
+        self._config = config
+        self._base_threshold = config.gesture_recognition.noise_filter_blur_threshold
         self._logger = logger
+
+    def _blur_threshold(self) -> float:
+        """Compute blur threshold at call time so colab_mode fallback is respected."""
+        colab_mode = getattr(self._config.camera, "colab_mode", False)
+        return (
+            self._base_threshold // self._COLAB_BLUR_DIVISOR if colab_mode else self._base_threshold
+        )
 
     def filter(self, pred: "Prediction", lm: "Landmark", frame: "Frame") -> "Prediction":
         """
@@ -54,7 +58,8 @@ class NoiseFilter:
             return pred
 
         # Check for blurry frame
-        if frame.blur_score < self._blur_threshold:
+        blur_threshold = self._blur_threshold()
+        if frame.blur_score < blur_threshold:
             pred.is_filtered = True
             pred.filter_reason = f"blurry_frame (score={frame.blur_score:.1f})"
             self._log_rejection(pred.filter_reason)

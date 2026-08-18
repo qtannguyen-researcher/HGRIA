@@ -58,7 +58,9 @@ class Rule:
         elif self.rule_type == "finger_curled":
             tip = self.parameters["tip"]
             mcp = self.parameters["mcp"]
-            margin = self.parameters.get("margin", 0.02)
+            # A curled finger has its tip BELOW the mcp in image coords (y increases downward).
+            # Use a generous margin so slight bends still register.
+            margin = self.parameters.get("margin", 0.04)
             diff = lm.points[tip].y - lm.points[mcp].y
             return min(max((diff + margin) / (2 * margin), 0.0), 1.0)
 
@@ -83,16 +85,23 @@ class Rule:
             direction = self.parameters["direction"]
             threshold = self.parameters.get("threshold", 0.08)
             diff = lm.points[tip].x - lm.points[mcp].x
+            # WebcamBridge sends the original (un-mirrored) frame to the backend,
+            # and the PiP preview also shows the un-mirrored frame.
+            # In the raw frame, x increases left→right as seen by the camera.
+            # User's left hand side = lower x values → diff < 0 for "point left".
+            # User's right hand side = higher x values → diff > 0 for "point right".
             if direction == "left":
                 return min(max(-diff / threshold, 0.0), 1.0)
             else:
                 return min(max(diff / threshold, 0.0), 1.0)
 
         elif self.rule_type == "thumb_up":
-            diff = lm.points[4].y - lm.points[3].y
+            # Thumb pointing UP: THUMB_TIP.y < THUMB_IP.y (tip is ABOVE ip in image coords).
+            # Also require the thumb tip to be above the wrist.
+            diff = lm.points[THUMB_IP].y - lm.points[THUMB_TIP].y   # positive when tip is higher
             margin = self.parameters.get("margin", 0.03)
             above_wrist = lm.points[WRIST].y - lm.points[THUMB_TIP].y
-            score = min(max(diff / margin, 0.0), 1.0)
+            score = min(max((diff + margin) / (2 * margin), 0.0), 1.0)
             wrist_score = 1.0 if above_wrist > 0 else 0.0
             return score * wrist_score
 
@@ -135,100 +144,105 @@ class GestureRule:
 GESTURE_RULES: List[GestureRule] = [
     GestureRule(
         "open_palm",
-        confidence_threshold=0.80,
+        confidence_threshold=0.78,
         rules=[
-            Rule("r_op_thumb", "finger_extended", {"tip": 4, "pip": 3}),
-            Rule("r_op_index", "finger_extended", {"tip": 8, "pip": 6}),
-            Rule("r_op_middle", "finger_extended", {"tip": 12, "pip": 10}),
-            Rule("r_op_ring", "finger_extended", {"tip": 16, "pip": 14}),
-            Rule("r_op_pinky", "finger_extended", {"tip": 20, "pip": 18}),
-            Rule("r_op_spread", "spread_ratio", {"target": 0.45, "tolerance": 0.10}),
+            Rule("r_op_thumb",  "finger_extended", {"tip": 4,  "pip": 3,  "margin": 0.03}),
+            Rule("r_op_index",  "finger_extended", {"tip": 8,  "pip": 6,  "margin": 0.03}),
+            Rule("r_op_middle", "finger_extended", {"tip": 12, "pip": 10, "margin": 0.03}),
+            Rule("r_op_ring",   "finger_extended", {"tip": 16, "pip": 14, "margin": 0.03}),
+            Rule("r_op_pinky",  "finger_extended", {"tip": 20, "pip": 18, "margin": 0.03}),
+            Rule("r_op_spread", "spread_ratio", {"target": 0.55, "tolerance": 0.15}),
         ],
     ),
     GestureRule(
         "closed_fist",
-        confidence_threshold=0.82,
+        confidence_threshold=0.80,
         rules=[
-            Rule("r_cf_index", "finger_curled", {"tip": 8, "mcp": 5}),
-            Rule("r_cf_middle", "finger_curled", {"tip": 12, "mcp": 9}),
-            Rule("r_cf_ring", "finger_curled", {"tip": 16, "mcp": 13}),
-            Rule("r_cf_pinky", "finger_curled", {"tip": 20, "mcp": 17}),
+            Rule("r_cf_index",  "finger_curled", {"tip": 8,  "mcp": 5,  "margin": 0.04}),
+            Rule("r_cf_middle", "finger_curled", {"tip": 12, "mcp": 9,  "margin": 0.04}),
+            Rule("r_cf_ring",   "finger_curled", {"tip": 16, "mcp": 13, "margin": 0.04}),
+            Rule("r_cf_pinky",  "finger_curled", {"tip": 20, "mcp": 17, "margin": 0.04}),
         ],
     ),
     GestureRule(
         "point_left",
-        confidence_threshold=0.78,
+        confidence_threshold=0.75,
         cooldown_ms=300,
         rules=[
-            Rule("r_pl_extended", "finger_extended", {"tip": 8, "pip": 6}),
-            Rule("r_pl_middle", "finger_curled", {"tip": 12, "mcp": 9}),
-            Rule("r_pl_ring", "finger_curled", {"tip": 16, "mcp": 13}),
-            Rule("r_pl_pinky", "finger_curled", {"tip": 20, "mcp": 17}),
-            Rule("r_pl_dir", "horizontal_direction", {"tip": 8, "mcp": 5, "direction": "left", "threshold": 0.08}, weight=2.0),
+            Rule("r_pl_extended", "finger_extended", {"tip": 8, "pip": 6, "margin": 0.03}),
+            Rule("r_pl_middle",   "finger_curled",   {"tip": 12, "mcp": 9,  "margin": 0.04}),
+            Rule("r_pl_ring",     "finger_curled",   {"tip": 16, "mcp": 13, "margin": 0.04}),
+            Rule("r_pl_pinky",    "finger_curled",   {"tip": 20, "mcp": 17, "margin": 0.04}),
+            Rule("r_pl_dir", "horizontal_direction",
+                 {"tip": 8, "mcp": 5, "direction": "left", "threshold": 0.06}, weight=2.0),
         ],
     ),
     GestureRule(
         "point_right",
-        confidence_threshold=0.78,
+        confidence_threshold=0.75,
         cooldown_ms=300,
         rules=[
-            Rule("r_pr_extended", "finger_extended", {"tip": 8, "pip": 6}),
-            Rule("r_pr_middle", "finger_curled", {"tip": 12, "mcp": 9}),
-            Rule("r_pr_ring", "finger_curled", {"tip": 16, "mcp": 13}),
-            Rule("r_pr_pinky", "finger_curled", {"tip": 20, "mcp": 17}),
-            Rule("r_pr_dir", "horizontal_direction", {"tip": 8, "mcp": 5, "direction": "right", "threshold": 0.08}, weight=2.0),
+            Rule("r_pr_extended", "finger_extended", {"tip": 8, "pip": 6, "margin": 0.03}),
+            Rule("r_pr_middle",   "finger_curled",   {"tip": 12, "mcp": 9,  "margin": 0.04}),
+            Rule("r_pr_ring",     "finger_curled",   {"tip": 16, "mcp": 13, "margin": 0.04}),
+            Rule("r_pr_pinky",    "finger_curled",   {"tip": 20, "mcp": 17, "margin": 0.04}),
+            Rule("r_pr_dir", "horizontal_direction",
+                 {"tip": 8, "mcp": 5, "direction": "right", "threshold": 0.06}, weight=2.0),
         ],
     ),
     GestureRule(
         "thumb_up",
-        confidence_threshold=0.80,
+        confidence_threshold=0.78,
         rules=[
-            Rule("r_tu_thumb", "thumb_up", {"margin": 0.03}, weight=2.0),
-            Rule("r_tu_index", "finger_curled", {"tip": 8, "mcp": 5}),
-            Rule("r_tu_middle", "finger_curled", {"tip": 12, "mcp": 9}),
-            Rule("r_tu_ring", "finger_curled", {"tip": 16, "mcp": 13}),
-            Rule("r_tu_pinky", "finger_curled", {"tip": 20, "mcp": 17}),
+            Rule("r_tu_thumb",  "thumb_up",        {"margin": 0.04}, weight=3.0),
+            Rule("r_tu_index",  "finger_curled",   {"tip": 8,  "mcp": 5,  "margin": 0.04}),
+            Rule("r_tu_middle", "finger_curled",   {"tip": 12, "mcp": 9,  "margin": 0.04}),
+            Rule("r_tu_ring",   "finger_curled",   {"tip": 16, "mcp": 13, "margin": 0.04}),
+            Rule("r_tu_pinky",  "finger_curled",   {"tip": 20, "mcp": 17, "margin": 0.04}),
         ],
     ),
     GestureRule(
         "victory",
-        confidence_threshold=0.80,
+        confidence_threshold=0.78,
         rules=[
-            Rule("r_vc_index", "finger_extended", {"tip": 8, "pip": 6}),
-            Rule("r_vc_middle", "finger_extended", {"tip": 12, "pip": 10}),
-            Rule("r_vc_ring", "finger_curled", {"tip": 16, "mcp": 13}),
-            Rule("r_vc_pinky", "finger_curled", {"tip": 20, "mcp": 17}),
-            Rule("r_vc_angle", "victory_spread_angle", {"min_angle": 15.0}, weight=2.0),
+            Rule("r_vc_index",  "finger_extended", {"tip": 8,  "pip": 6,  "margin": 0.03}),
+            Rule("r_vc_middle", "finger_extended", {"tip": 12, "pip": 10, "margin": 0.03}),
+            Rule("r_vc_ring",   "finger_curled",   {"tip": 16, "mcp": 13, "margin": 0.04}),
+            Rule("r_vc_pinky",  "finger_curled",   {"tip": 20, "mcp": 17, "margin": 0.04}),
+            Rule("r_vc_angle",  "victory_spread_angle", {"min_angle": 15.0}, weight=2.0),
         ],
     ),
     GestureRule(
+        # "stop" = open hand held flat toward camera, fingers together (like a stop sign).
+        # Distinguished from open_palm by TIGHT spread (fingers close together).
         "stop",
-        confidence_threshold=0.78,
+        confidence_threshold=0.76,
         cooldown_ms=1000,
         rules=[
-            Rule("r_st_index", "finger_extended", {"tip": 8, "pip": 6}),
-            Rule("r_st_middle", "finger_extended", {"tip": 12, "pip": 10}),
-            Rule("r_st_ring", "finger_extended", {"tip": 16, "pip": 14}),
-            Rule("r_st_pinky", "finger_extended", {"tip": 20, "pip": 18}),
-            Rule("r_st_spread", "spread_ratio", {"target": 0.45, "tolerance": 0.10}, weight=2.0),
+            Rule("r_st_index",  "finger_extended", {"tip": 8,  "pip": 6,  "margin": 0.03}),
+            Rule("r_st_middle", "finger_extended", {"tip": 12, "pip": 10, "margin": 0.03}),
+            Rule("r_st_ring",   "finger_extended", {"tip": 16, "pip": 14, "margin": 0.03}),
+            Rule("r_st_pinky",  "finger_extended", {"tip": 20, "pip": 18, "margin": 0.03}),
+            # tight spread distinguishes stop from open_palm (spread < 0.35)
+            Rule("r_st_spread", "spread_ratio", {"target": 0.25, "tolerance": 0.12}, weight=2.0),
         ],
     ),
     GestureRule(
         "pinch",
-        confidence_threshold=0.82,
+        confidence_threshold=0.80,
         cooldown_ms=400,
         rules=[
-            Rule("r_pc_pinch", "pinch_distance", {"threshold": 0.06}, weight=3.0),
+            Rule("r_pc_pinch", "pinch_distance", {"threshold": 0.08}, weight=3.0),
         ],
     ),
     GestureRule(
         "ok",
-        confidence_threshold=0.82,
+        confidence_threshold=0.80,
         rules=[
-            Rule("r_ok_pinch", "pinch_distance", {"threshold": 0.06}, weight=2.0),
-            Rule("r_ok_middle", "finger_extended", {"tip": 12, "pip": 10}),
-            Rule("r_ok_ring", "finger_extended", {"tip": 16, "pip": 14}),
-            Rule("r_ok_pinky", "finger_extended", {"tip": 20, "pip": 18}),
+            Rule("r_ok_pinch",  "pinch_distance",  {"threshold": 0.08}, weight=2.0),
+            Rule("r_ok_middle", "finger_extended", {"tip": 12, "pip": 10, "margin": 0.03}),
+            Rule("r_ok_ring",   "finger_extended", {"tip": 16, "pip": 14, "margin": 0.03}),
+            Rule("r_ok_pinky",  "finger_extended", {"tip": 20, "pip": 18, "margin": 0.03}),
         ],
     ),
 ]

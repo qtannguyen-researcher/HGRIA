@@ -32,6 +32,9 @@ class SocketClient {
         this.#socket = io(this.#url, {
             transports: ['websocket', 'polling'],
             reconnection: false, // We handle reconnection manually
+            extraHeaders: {
+                'ngrok-skip-browser-warning': '1',
+            },
         });
         
         this.#setupEventHandlers();
@@ -48,6 +51,7 @@ class SocketClient {
             this.#retryCount = 0;
             this.#gameState.connectionStatus = 'connected';
             this.#gameState.clearError();
+            window._dbgLog && window._dbgLog('WS','#0f0','connected to ' + this.#url);
             
             // Send client_ready
             socket.emit('client_ready', {
@@ -61,12 +65,14 @@ class SocketClient {
         socket.on('disconnect', () => {
             this.#connected = false;
             this.#gameState.connectionStatus = 'disconnected';
+            window._dbgLog && window._dbgLog('WS','#f80','disconnected');
             this.#stopPing();
             this.#scheduleReconnect();
         });
         
         socket.on('connect_error', (error) => {
             console.warn('Connection error:', error);
+            window._dbgLog && window._dbgLog('WS','#f00','connect_error: ' + error.message);
             this.#gameState.connectionStatus = 'disconnected';
             this.#scheduleReconnect();
         });
@@ -77,11 +83,39 @@ class SocketClient {
         });
         
         socket.on('gesture_command', (data) => {
+            window._dbgLog && window._dbgLog('CMD','#0ff', `gesture_command: ${data.gesture_name} [${data.command_type}]`);
+            console.debug('[gesture_command]', data.gesture_name, data.command_type, data.command_value);
             this.#gameState.enqueueCommand(data);
         });
         
         socket.on('gesture_update', (data) => {
+            window._dbgLog && window._dbgLog('UPD','#08f', `gesture_update: ${data.gesture_name} (${Math.round((data.confidence||0)*100)}%)`);
             this.#gameState.updateGestureDisplay(data);
+
+            // Client-side shortcut: inject a synthetic command for UI gestures
+            // that need instant response regardless of server-side cooldown.
+            // This handles the case where victory/stop was recently emitted and
+            // is still on cooldown when the user needs it (e.g. game-over screen).
+            const UI_BYPASS = new Set(['victory', 'stop', 'ok', 'DOUBLE_TAP']);
+            if (UI_BYPASS.has(data.gesture_name)) {
+                const now = performance.now();
+                const key = `_bypass_${data.gesture_name}`;
+                const last = this.#gameState[key] || 0;
+                // Client-side bypass cooldown: 800ms — long enough to debounce
+                // but short enough to feel responsive.
+                if (now - last > 800) {
+                    this.#gameState[key] = now;
+                    this.#gameState.enqueueCommand({
+                        command_id:    crypto.randomUUID(),
+                        gesture_name:  data.gesture_name,
+                        command_type:  'UI',
+                        command_value: {},
+                        confidence:    data.confidence || 1.0,
+                        timestamp:     new Date().toISOString(),
+                        _source:       'client_bypass',
+                    });
+                }
+            }
         });
         
         socket.on('system_state_change', (data) => {

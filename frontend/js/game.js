@@ -242,6 +242,8 @@ class GameEngine {
         let cmd;
         while ((cmd = this.#state.dequeueCommand()) !== null) {
             const handler = COMMAND_HANDLERS[cmd.gesture_name];
+            window._dbgLog && window._dbgLog('GAME', handler ? '#0f0' : '#f00',
+                `dequeue: ${cmd.gesture_name} → handler ${handler ? 'FOUND' : 'NOT FOUND'}`);
             if (handler) {
                 handler(this.#phys);
                 this.#audio.play(cmd.gesture_name);
@@ -251,6 +253,7 @@ class GameEngine {
         // Consume flags
         if (this.#phys.pauseToggle) {
             this.#phys.pauseToggle = false;
+            // pause/resume only works while playing, not on game-over screen
             if (!this.#state.gameOver) {
                 this.#state.paused = !this.#state.paused;
             }
@@ -258,9 +261,9 @@ class GameEngine {
 
         if (this.#phys.restartRequest) {
             this.#phys.restartRequest = false;
-            if (this.#state.gameOver) {
-                this.#doRestart();
-            }
+            // Allow restart from game-over screen OR via explicit restart gesture
+            // while playing (acts as a hard reset).
+            this.#doRestart();
         }
     }
 

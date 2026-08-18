@@ -1,7 +1,6 @@
 """Command generator and transmitter for the HGRIA system."""
 
 import queue
-import threading
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -137,20 +136,17 @@ class CommandTransmitter:
         self._logger = logger
         self._buffer: List[tuple] = []  # List of (timestamp, Command)
         self._running = True
-        self._thread: Optional[threading.Thread] = None
         self._connected = False
 
     def start(self) -> None:
-        """Start the transmitter background thread."""
+        """Start the transmitter background thread via SocketIO so that
+        ``emit`` calls have access to the correct application context."""
         self._running = True
-        self._thread = threading.Thread(target=self._drain_loop, daemon=True)
-        self._thread.start()
+        self._sio.start_background_task(self._drain_loop)
 
     def stop(self) -> None:
-        """Stop the transmitter background thread."""
+        """Stop the transmitter drain loop."""
         self._running = False
-        if self._thread:
-            self._thread.join(timeout=2.0)
 
     def _drain_loop(self) -> None:
         """Background loop that drains the command queue."""

@@ -10,7 +10,6 @@ from backend.core.configuration import ConfigurationManager
 from backend.core.models import Session
 from backend.core.state_manager import StateManager
 from backend.pipeline.camera import CameraModule
-from backend.pipeline.commander import CommandTransmitter
 from backend.pipeline.detector import HandDetector
 from backend.pipeline.pipeline_runner import PipelineRunner
 from backend.utils.logger import StructuredLogger
@@ -84,6 +83,8 @@ class SystemOrchestrator:
                 camera=camera, detector=detector, logger=self._logger,
                 socketio=self._socketio,
             )
+            # Expose pipeline to Flask routes for /api/debug
+            self._app.config["HG_PIPELINE"] = self._pipeline
 
             # 10. Register signal handlers
             signal.signal(signal.SIGINT, self._shutdown)
@@ -95,15 +96,26 @@ class SystemOrchestrator:
 
             # 12. Start ngrok if available
             public_url = self._start_ngrok()
+            port = self._config.server.port
             if public_url:
                 frontend_url = (
                     f"https://qtannguyen-researcher.github.io/HGRIA/?server={public_url}"
                 )
-                print(f"Server URL : http://{self._config.server.host}:{self._config.server.port}")
-                print(f"Public URL : {public_url}")
-                print(f"Frontend   : {frontend_url}")
+                print(f"\n{'='*60}")
+                print(f"  Server URL  : http://localhost:{port}")
+                print(f"  Public URL  : {public_url}")
+                print(f"  Frontend    : {frontend_url}")
+                print(f"{'='*60}")
+                print(f"  → Open the Frontend URL above in your browser")
+                print(f"{'='*60}\n")
             else:
-                print(f"Server running at: http://{self._config.server.host}:{self._config.server.port}")
+                print(f"\n{'='*60}")
+                print(f"  Server running at : http://localhost:{port}")
+                print(f"  Frontend          : http://localhost:{port}")
+                print(f"{'='*60}")
+                print(f"  → Open http://localhost:{port} in your browser")
+                print(f"  (ngrok not available — local access only)")
+                print(f"{'='*60}\n")
 
             # 13. Start Flask server (blocks)
             self._logger.info("server_starting", module="orchestrator")
@@ -116,15 +128,7 @@ class SystemOrchestrator:
             )
 
         except Exception as e:
-            from backend.core.errors import CameraInitializationError
-            if isinstance(e, CameraInitializationError):
-                msg = (
-                    f"FATAL: Cannot open camera — {e}\n"
-                    "  - Check that a webcam is connected and not in use by another app.\n"
-                    "  - To run without a camera (browser-based), set \"colab_mode\": true in config/config.json."
-                )
-                print(msg, file=sys.stderr)
-            elif self._logger:
+            if self._logger:
                 self._logger.critical("startup_failed", error=str(e), module="orchestrator")
             else:
                 print(f"FATAL: Startup failed: {e}", file=sys.stderr)
