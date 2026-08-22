@@ -302,3 +302,16 @@ Use this instrumentation (JSONL + debug counters) to run a **defined
 measurement experiment** (window, hardware block, git SHA). Do **not** start
 Docker, cloud deployment, Kubernetes, load testing, ONNX, new gestures, or
 accuracy/F1 evaluation until that experiment is specified.
+
+## Infomations
+Baseline Commit:
+9e972d22e038ba7e60b4ec6d1f8ace6e21f11890
+
+Python:
+3.10.12
+
+Environment:
+See environment.txt
+
+Baseline Date:
+2026-08-22
