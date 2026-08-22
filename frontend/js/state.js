@@ -53,6 +53,10 @@ class GameState {
      * @param {Object} cmd - Command object
      */
     enqueueCommand(cmd) {
+        if (typeof shouldBlockCommandInjection === 'function'
+            && shouldBlockCommandInjection(cmd, this)) {
+            return;
+        }
         if (this.#inputQueue.length >= this.#MAX_QUEUE) {
             this.#inputQueue.shift(); // Drop oldest
         }

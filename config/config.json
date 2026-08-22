@@ -4,7 +4,8 @@
     "frame_width": 640,
     "frame_height": 480,
     "target_fps": 30,
-    "colab_mode": false
+    "colab_mode": false,
+    "colab_fallback": false
   },
   "mediapipe": {
     "min_detection_confidence": 0.5,
@@ -85,12 +86,15 @@
     "log_pipeline_latency": false
   },
   "evaluation": {
-    "mode": false
+    "mode": false,
+    "preview_enabled": true,
+    "strict_camera": false
   },
   "instrumentation": {
     "enabled": true,
     "jsonl_path": "logs/instrumentation.jsonl",
-    "resource_sample_interval_s": 1.0
+    "resource_sample_interval_s": 1.0,
+    "run_id": ""
   },
   "custom_gestures": []
 }

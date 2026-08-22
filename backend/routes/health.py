@@ -27,9 +27,30 @@ def debug_info():
 
     # ── Config snapshot ────────────────────────────────────────────────────
     colab_mode   = bool(config.camera.colab_mode)  if config else None
+    colab_fallback = bool(getattr(config.camera, "colab_fallback", False)) if config else None
     blur_thresh  = config.gesture_recognition.noise_filter_blur_threshold if config else None
     smooth_win   = config.gesture_recognition.smoothing_window_size        if config else None
     conf_thresh  = config.gesture_recognition.confidence_threshold         if config else None
+    preview_enabled = (
+        bool(config.is_preview_enabled())
+        if config and hasattr(config, "is_preview_enabled")
+        else None
+    )
+    strict_camera = (
+        bool(config.is_strict_camera())
+        if config and hasattr(config, "is_strict_camera")
+        else None
+    )
+    evaluation_mode = (
+        bool(config.is_evaluation_mode())
+        if config and hasattr(config, "is_evaluation_mode")
+        else None
+    )
+    dynamic_enabled = (
+        bool(config.is_dynamic_gestures_enabled())
+        if config and hasattr(config, "is_dynamic_gestures_enabled")
+        else None
+    )
 
     # ── FrameStore status ──────────────────────────────────────────────────
     frame_store_has_frame = False
@@ -66,11 +87,17 @@ def debug_info():
     return jsonify({
         "config": {
             "colab_mode":   colab_mode,
+            "colab_fallback": colab_fallback,
+            "strict_camera": strict_camera,
+            "preview_enabled": preview_enabled,
+            "evaluation_mode": evaluation_mode,
+            "dynamic_gestures_enabled": dynamic_enabled,
             "blur_threshold_effective": (
                 blur_thresh // 4 if colab_mode else blur_thresh
             ),
             "smoothing_window": smooth_win,
             "confidence_threshold": conf_thresh,
+            "opencv_baseline_invalid_if_colab_mode": True,
         },
         "frame_store_has_frame": frame_store_has_frame,
         "pipeline_stats": stats,
@@ -81,22 +108,33 @@ def debug_info():
         "avg_total_server_ms": instrumentation.get("avg_total_server_ms"),
         "instrumentation": instrumentation,
         "avg_blur_last_30_frames": avg_blur,
-        "diagnosis": _diagnose(stats, colab_mode, frame_store_has_frame),
+        "diagnosis": _diagnose(stats, colab_mode, frame_store_has_frame, colab_fallback),
     }), 200
 
 
-def _diagnose(stats: dict, colab_mode, frame_store_has_frame) -> str:
+def _diagnose(stats: dict, colab_mode, frame_store_has_frame, colab_fallback=None) -> str:
     """Return a plain-English summary of where the pipeline is stuck."""
     if not stats:
         return "Pipeline not attached to app — check HG_PIPELINE in app.config"
 
+    if colab_mode:
+        suffix = (
+            " INVALID as a local OpenCV baseline (colab_mode=true"
+            + (", fallback from failed camera open)" if colab_fallback else ").")
+        )
+    else:
+        suffix = ""
+
     captured = stats.get("frames_captured", 0)
     if captured == 0:
         if colab_mode and not frame_store_has_frame:
-            return "NO FRAMES: colab_mode=True but FrameStore is empty — browser is not POSTing to /api/frame, or WebcamBridge is not running"
+            return (
+                "NO FRAMES: colab_mode=True but FrameStore is empty — browser is not "
+                "POSTing to /api/frame, or WebcamBridge is not running." + suffix
+            )
         if not colab_mode:
             return "NO FRAMES: colab_mode=False — OpenCV camera may not be producing frames"
-        return "NO FRAMES: unknown reason"
+        return "NO FRAMES: unknown reason." + suffix
 
     no_hand   = stats.get("frames_no_hand",         0)
     noise     = stats.get("frames_filtered_noise",  0)
@@ -105,7 +143,7 @@ def _diagnose(stats: dict, colab_mode, frame_store_has_frame) -> str:
     commands  = stats.get("commands_sent",           0)
 
     if commands > 0:
-        return f"OK — {commands} command(s) sent so far"
+        return f"OK — {commands} command(s) sent so far.{suffix}"
 
     hand_frames = captured - no_hand
     if hand_frames == 0:

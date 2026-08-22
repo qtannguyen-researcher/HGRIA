@@ -68,6 +68,37 @@ function isEvaluationMode(gameState) {
     return false;
 }
 
+/**
+ * True for commands that did not originate from the server recognition pipeline.
+ * DEBUG = debug-panel _dbgInject; KEYBOARD = demo key fallback;
+ * _source client_bypass = UI_BYPASS synthetic command.
+ * @param {Object} cmd
+ * @returns {boolean}
+ */
+function isArtificialCommand(cmd) {
+    if (!cmd || typeof cmd !== 'object') {
+        return false;
+    }
+    if (cmd.command_type === 'DEBUG' || cmd.command_type === 'KEYBOARD') {
+        return true;
+    }
+    if (cmd._source === 'client_bypass') {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Evaluation mode must not enqueue debug / keyboard / UI-bypass commands.
+ * Real gesture_command payloads (MOVE / ACTION / UI / SYSTEM) stay allowed.
+ * @param {Object} cmd
+ * @param {GameState} [gameState]
+ * @returns {boolean}
+ */
+function shouldBlockCommandInjection(cmd, gameState) {
+    return isEvaluationMode(gameState) && isArtificialCommand(cmd);
+}
+
 // ===== Gesture Guide Map =====
 const GESTURE_GUIDE = {
     // ── Static gestures ──────────────────────────────────────────────────
@@ -172,5 +203,14 @@ function safeGestureName(name) {
 
 // Export for module usage
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { CONFIG, GESTURE_GUIDE, VALID_GESTURE_NAMES, SAFE_GESTURE_RE, safeGestureName, isEvaluationMode };
+    module.exports = {
+        CONFIG,
+        GESTURE_GUIDE,
+        VALID_GESTURE_NAMES,
+        SAFE_GESTURE_RE,
+        safeGestureName,
+        isEvaluationMode,
+        isArtificialCommand,
+        shouldBlockCommandInjection,
+    };
 }

@@ -12,8 +12,8 @@
             crossorigin="anonymous"></script>
     
     <!-- Local JS Modules (loaded in dependency order) -->
-    <script src="js/config.js?v=3" defer></script>
-    <script src="js/state.js?v=3" defer></script>
+    <script src="js/config.js?v=4" defer></script>
+    <script src="js/state.js?v=4" defer></script>
     <script src="js/websocket.js?v=3" defer></script>
     <script src="js/webcam_bridge.js?v=3" defer></script>
     <script src="js/audio.js?v=2" defer></script>
@@ -154,12 +154,21 @@
         log.scrollTop = log.scrollHeight;
     };
 
-    // Inject a fake gesture_command for testing — works even before _gameState is ready
+    // Inject a fake gesture_command for testing — demo only.
+    // Evaluation mode: no-op. enqueueCommand also rejects DEBUG/KEYBOARD/bypass.
     window._dbgInject = function(gestureName) {
-        // Try _gameState first, fall back to polling
         const gs = window._gameState;
+        if (typeof isEvaluationMode === 'function' && isEvaluationMode(gs)) {
+            window._dbgLog && window._dbgLog('INJECT','#f80','blocked: evaluation mode');
+            return;
+        }
+        if (gs && gs.evaluationMode) {
+            window._dbgLog && window._dbgLog('INJECT','#f80','blocked: evaluation mode');
+            return;
+        }
+        // Try _gameState first, fall back to polling
         if (!gs) {
-            window._dbgLog('DBG','#fa0','_gameState not ready — retrying in 500ms');
+            window._dbgLog && window._dbgLog('DBG','#fa0','_gameState not ready — retrying in 500ms');
             setTimeout(() => window._dbgInject(gestureName), 500);
             return;
         }
@@ -172,12 +181,21 @@
             timestamp:    new Date().toISOString(),
         };
         gs.enqueueCommand(cmd);
-        window._dbgLog('INJECT','#ff0', `injected: ${gestureName} — queueLen=${gs._dbgQueueLen?.() ?? '?'}`);
+        window._dbgLog && window._dbgLog('INJECT','#ff0', `injected: ${gestureName} — queueLen=${gs._dbgQueueLen?.() ?? '?'}`);
     };
 
     // Call the server's /api/test-emit to trigger a real gesture_command
-    // via WebSocket from the server side
+    // via WebSocket from the server side. Evaluation mode: no-op (server also 403s).
     window._dbgServerEmit = async function(gestureName) {
+        const gs = window._gameState;
+        if (typeof isEvaluationMode === 'function' && isEvaluationMode(gs)) {
+            window._dbgLog && window._dbgLog('SRV','#f80','blocked: evaluation mode');
+            return;
+        }
+        if (gs && gs.evaluationMode) {
+            window._dbgLog && window._dbgLog('SRV','#f80','blocked: evaluation mode');
+            return;
+        }
         const baseUrl = window.HGRIA_BACKEND_URL
             || (new URLSearchParams(location.search).get('server'))
             || localStorage.getItem('hgria_backend_url')

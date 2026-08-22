@@ -124,7 +124,11 @@ class PipelineRunner:
         from backend.utils.instrumentation import (
             ResourceSampler,
             build_experiment_logger,
+            collect_run_metadata,
             instrumentation_config,
+            resolve_run_id,
+            sidecar_path_for,
+            write_run_sidecar,
         )
         instr_cfg = instrumentation_config(config)
         self._instrumentation_enabled = bool(instr_cfg["enabled"])
@@ -142,6 +146,27 @@ class PipelineRunner:
         self._latest_frame_timing: Any = None
         self._total_server_ms_sum = 0.0
         self._total_server_ms_n = 0
+        self._run_id = resolve_run_id(config)
+        self._preview_enabled = True
+        try:
+            if hasattr(config, "is_preview_enabled"):
+                self._preview_enabled = bool(config.is_preview_enabled())
+        except AttributeError:
+            self._preview_enabled = True
+        self._run_metadata_path: Optional[str] = None
+        if (
+            self._experiment_logger is not None
+            and getattr(self._experiment_logger, "enabled", False)
+        ):
+            jsonl_path = getattr(self._experiment_logger, "path", None)
+            if jsonl_path:
+                self._run_metadata_path = sidecar_path_for(jsonl_path)
+                write_run_sidecar(
+                    self._run_metadata_path,
+                    collect_run_metadata(
+                        config, run_id=self._run_id, jsonl_path=jsonl_path
+                    ),
+                )
 
     def _init_dynamic_recognizer(self, config: "ConfigurationManager") -> None:
         """Initialise the DynamicGestureRecognizer only when enabled is true.
@@ -229,6 +254,7 @@ class PipelineRunner:
         from backend.utils.instrumentation import FrameTiming, mono_now, time_call, wall_iso
 
         timing = FrameTiming()
+        timing.run_id = self._run_id
 
         # Stage 1: Capture
         t_cap0 = mono_now()
@@ -249,8 +275,10 @@ class PipelineRunner:
             self._blur_history.append(frame.blur_score)
 
         try:
-            # Emit a preview frame to connected clients (throttled to ~10 FPS).
-            self._maybe_emit_preview(frame.bgr_data)
+            # Preview JPEG encode/emit is inside total_server_ms when enabled.
+            # Measurement disables it so encode/emit are completely absent.
+            if self._preview_enabled:
+                self._maybe_emit_preview(frame.bgr_data)
 
             # Stage 2: Preprocess (BGR → RGB + optional CLAHE)
             frame, timing.preprocess_ms, timing.t_preprocess_done = time_call(
@@ -285,6 +313,7 @@ class PipelineRunner:
 
             static_gesture: Optional[str] = None
             static_confidence: float = 0.0
+            exit_reason: Optional[str] = None
 
             if raw_landmarks:
                 self._state_manager.transition("hand_detected")
@@ -329,11 +358,19 @@ class PipelineRunner:
                             timing.score = prediction.confidence
                         else:
                             self.stats["frames_filtered_temporal"] += 1
+                            exit_reason = "temporal"
                     else:
                         self.stats["frames_filtered_noise"] += 1
+                        exit_reason = "noise"
+                else:
+                    # Unreachable with current LandmarkExtractor (one Landmark
+                    # per raw detection). Recorded as no_hand: no classification
+                    # occurred. See docs/experiments/measurement_readiness.md.
+                    exit_reason = "no_hand"
             else:
                 self._state_manager.transition("no_hand_detected")
                 self.stats["frames_no_hand"] += 1
+                exit_reason = "no_hand"
 
             # ── Stage 4: Merge ─────────────────────────────────────────────────
             # Dynamic gesture takes priority when both are present.
@@ -344,6 +381,7 @@ class PipelineRunner:
                 gesture = static_gesture
                 confidence = static_confidence
             else:
+                timing.exit_reason = exit_reason
                 return True  # frame processed, no gesture this cycle
 
             timing.gesture = gesture
@@ -371,6 +409,7 @@ class PipelineRunner:
             partial = self._cooldown_manager.check(gesture, confidence)
             if partial is None:
                 self.stats["frames_cooldown"] += 1
+                timing.exit_reason = "cooldown"
                 return True  # gesture seen but rate-limited
 
             # Stage 6: Generate command
@@ -387,6 +426,7 @@ class PipelineRunner:
                         error=str(exc),
                         module="pipeline_runner",
                     )
+                timing.exit_reason = "unmapped"
                 return True
 
             self._state_manager.transition("command_emitted")
@@ -398,6 +438,7 @@ class PipelineRunner:
                 self._socketio.emit("gesture_command", command.to_dict())
             timing.t_command_emitted = mono_now()
             timing.command_emitted = True
+            timing.exit_reason = "command"
             # Also push to queue for any other consumers (logging, stats, etc.)
             try:
                 self._command_queue.put_nowait(command)
@@ -429,6 +470,8 @@ class PipelineRunner:
         WebSocket with full-rate camera frames.  Only runs when a SocketIO
         instance is available (i.e. not in test / offline mode).
         """
+        if not self._preview_enabled:
+            return
         if self._socketio is None or bgr_data is None:
             return
 
@@ -506,6 +549,9 @@ class PipelineRunner:
                 getattr(self._experiment_logger, "enabled", False)
             ),
             "jsonl_path": getattr(self._experiment_logger, "path", None),
+            "run_id": self._run_id,
+            "run_metadata_path": self._run_metadata_path,
+            "preview_enabled": self._preview_enabled,
             "cpu_scope": "process",
         }
 

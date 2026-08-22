@@ -106,3 +106,25 @@ class TestEvaluationModeClientGuards:
         assert "KEYBOARD_MAP" in text
         assert "isEvaluationMode(gameState)" in text
         assert "command_type: 'KEYBOARD'" in text
+
+    def test_dbg_inject_gated(self):
+        html = Path("frontend/index.html").read_text(encoding="utf-8")
+        assert "window._dbgInject" in html
+        assert "isEvaluationMode" in html
+        assert "blocked: evaluation mode" in html
+        # The inject function must return before enqueueCommand when eval is on.
+        inject_start = html.index("window._dbgInject = function")
+        inject_end = html.index("window._dbgServerEmit = async function")
+        inject_fn = html[inject_start:inject_end]
+        assert "blocked: evaluation mode" in inject_fn
+        assert inject_fn.index("isEvaluationMode") < inject_fn.index("enqueueCommand")
+
+    def test_enqueue_rejects_artificial_commands_in_evaluation(self):
+        state = Path("frontend/js/state.js").read_text(encoding="utf-8")
+        assert "shouldBlockCommandInjection" in state
+        cfg = Path("frontend/js/config.js").read_text(encoding="utf-8")
+        assert "function shouldBlockCommandInjection" in cfg
+        assert "function isArtificialCommand" in cfg
+        assert "DEBUG" in cfg
+        assert "KEYBOARD" in cfg
+        assert "client_bypass" in cfg

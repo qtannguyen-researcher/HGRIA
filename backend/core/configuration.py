@@ -32,6 +32,10 @@ DEFAULTS: Dict[str, Any] = {
         "frame_height": 480,
         "target_fps": 30,
         "colab_mode": False,
+        # Set at runtime if OpenCV capture fails and the process falls back
+        # to browser JPEG POST. A measurement run with this true is invalid
+        # as an OpenCV baseline (see /api/debug and measurement_readiness.md).
+        "colab_fallback": False,
     },
     "mediapipe": {
         # Aligned with config/config.json (baseline source of truth).
@@ -118,6 +122,12 @@ DEFAULTS: Dict[str, Any] = {
     },
     "evaluation": {
         "mode": False,
+        # Demo/default: emit JPEG preview (~10 Hz). Measurement: set false so
+        # preview encode/emit is absent from the processing path.
+        "preview_enabled": True,
+        # When true, CameraModule does not silently fall back to Colab/browser
+        # capture if the local OpenCV camera fails to open.
+        "strict_camera": False,
     },
     # Phase 2: server-side instrumentation. Relative path only — do not put
     # a machine-specific absolute path here.
@@ -125,6 +135,9 @@ DEFAULTS: Dict[str, Any] = {
         "enabled": True,
         "jsonl_path": "logs/instrumentation.jsonl",
         "resource_sample_interval_s": 1.0,
+        # Empty string means generate a UUID at pipeline start. Prefer an
+        # explicit value (or HGRIA_INSTRUMENTATION_RUN_ID) for measurement.
+        "run_id": "",
     },
     "custom_gestures": [],
 }
@@ -321,3 +334,40 @@ class ConfigurationManager:
         if not isinstance(section, dict):
             return True
         return bool(section.get("enabled", True))
+
+    def is_preview_enabled(self) -> bool:
+        """Return True when JPEG preview encode/emit should run.
+
+        Default is True (demo unchanged). Uses dict lookup so JSON ``false``
+        is not swallowed (unlike ``get()``). Missing key means enabled.
+        """
+        section = self._data.get("evaluation")
+        if not isinstance(section, dict):
+            return True
+        if "preview_enabled" not in section:
+            return True
+        return bool(section.get("preview_enabled"))
+
+    def is_strict_camera(self) -> bool:
+        """Return True when local camera open failure must not fall back.
+
+        Default is False (existing Colab/browser fallback remains).
+        """
+        section = self._data.get("evaluation")
+        if not isinstance(section, dict):
+            return False
+        return bool(section.get("strict_camera", False))
+
+    def run_id(self) -> str:
+        """Return configured instrumentation.run_id, or empty if unset.
+
+        Empty means the pipeline should generate a UUID. Does not use
+        ``get()`` so a deliberate empty string stays empty.
+        """
+        section = self._data.get("instrumentation")
+        if not isinstance(section, dict):
+            return ""
+        value = section.get("run_id", "")
+        if value is None:
+            return ""
+        return str(value)

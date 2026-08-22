@@ -1,5 +1,10 @@
 # HGRIA Phase 2 — server-side instrumentation
 
+Pre-Phase 3 measurement hardening (preview switch, `exit_reason`, run
+sidecar, evaluation injection, camera observability) is documented in
+`docs/experiments/measurement_readiness.md`. This file remains the Phase 2
+timing/JSONL contract; those additive fields do not change recognition.
+
 This document describes **how** the static MediaPipe / rule-based pipeline is
 timed and logged. It is **not** a results paper.
 
@@ -281,7 +286,9 @@ Helper: `ConfigurationManager.is_instrumentation_enabled()`.
    `_process_frame`). It excludes client capture, network upload of JPEGs,
    and client HUD apply time.
 5. Preview JPEG encode (`_maybe_emit_preview`) is **inside** `total_server_ms`
-   when it runs (~10 Hz) and is **not** a named stage.
+   when it runs (~10 Hz) and is **not** a named stage. Pre-Phase 3 adds
+   `evaluation.preview_enabled`; when false, encode/emit are absent. See
+   `measurement_readiness.md`.
 6. Cooldown `check()` is not a named stage duration.
 7. Dynamic / ONNX time is not recorded (baseline path is static-only).
 8. MediaPipe `Hands(static_image_mode=False)` is stateful; per-frame

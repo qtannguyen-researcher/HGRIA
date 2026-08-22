@@ -10,14 +10,29 @@ and writes observations.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import resource
+import subprocess
+import sys
 import threading
 import time
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
+
+# Per-frame decision labels recorded at the pipeline branch that ended
+# processing. Do not infer these later from timing fields.
+EXIT_REASONS = (
+    "no_hand",
+    "noise",
+    "temporal",
+    "cooldown",
+    "unmapped",
+    "command",
+)
 
 
 def mono_now() -> float:
@@ -123,6 +138,10 @@ class FrameTiming:
     score: Optional[float] = None
     command_emitted: bool = False
     dropped_frames: int = 0
+    # Why this frame's processing ended. Null only if an exception aborted
+    # the try-block before a decision (see measurement_readiness.md).
+    exit_reason: Optional[str] = None
+    run_id: Optional[str] = None
     # Wall clock for log correlation only
     timestamp: str = field(default_factory=wall_iso)
     # Optional 1 Hz resource snapshot (copied, not sampled per frame)
@@ -187,6 +206,8 @@ class FrameTiming:
             "gesture": self.gesture,
             "score": self.score,
             "command_emitted": self.command_emitted,
+            "exit_reason": self.exit_reason,
+            "run_id": self.run_id,
             "dropped_frames": self.dropped_frames,
             "cpu_percent": self.cpu_percent,
             "rss_mb": self.rss_mb,
@@ -208,6 +229,8 @@ class FrameTiming:
             "gesture": self.gesture,
             "score": self.score,
             "command_emitted": self.command_emitted,
+            "exit_reason": self.exit_reason,
+            "run_id": self.run_id,
             "timestamp": self.timestamp,
         }
 
@@ -353,10 +376,22 @@ def instrumentation_config(config: Any) -> Dict[str, Any]:
     except (AttributeError, TypeError, ValueError):
         pass
 
+    run_id = ""
+    try:
+        if hasattr(config, "run_id"):
+            run_id = str(config.run_id() or "")
+        else:
+            section = getattr(config, "instrumentation", None)
+            if section is not None:
+                run_id = str(getattr(section, "run_id", "") or "")
+    except (AttributeError, TypeError):
+        run_id = ""
+
     return {
         "enabled": enabled,
         "jsonl_path": jsonl_path,
         "resource_sample_interval_s": interval_s,
+        "run_id": run_id,
     }
 
 
@@ -364,3 +399,170 @@ def build_experiment_logger(config: Any) -> ExperimentLogger:
     """Construct an ExperimentLogger from config (relative default path)."""
     cfg = instrumentation_config(config)
     return ExperimentLogger(path=cfg["jsonl_path"], enabled=cfg["enabled"])
+
+
+def resolve_run_id(config: Any) -> str:
+    """Return an explicit run_id or generate a UUID.
+
+    Preference: ``instrumentation.run_id`` (including ``HGRIA_INSTRUMENTATION_RUN_ID``)
+    if non-empty; otherwise a new UUID4. Generated IDs are not written back
+    into config.
+    """
+    configured = ""
+    try:
+        if hasattr(config, "run_id"):
+            configured = str(config.run_id() or "")
+        else:
+            section = getattr(config, "instrumentation", None)
+            if section is not None:
+                configured = str(getattr(section, "run_id", "") or "")
+    except (AttributeError, TypeError):
+        configured = ""
+    configured = configured.strip()
+    return configured or str(uuid.uuid4())
+
+
+def sidecar_path_for(jsonl_path: str) -> str:
+    """Derive the run-metadata sidecar path from the JSONL path."""
+    root, _ext = os.path.splitext(jsonl_path)
+    return root + ".run.json"
+
+
+def write_run_sidecar(path: str, metadata: Dict[str, Any]) -> None:
+    """Write (overwrite) the run metadata sidecar as pretty-printed JSON."""
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(metadata, handle, indent=2, ensure_ascii=False, sort_keys=True)
+        handle.write("\n")
+
+
+def _git_sha() -> Optional[str]:
+    """Best-effort git SHA of the current checkout. None if unavailable."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+        if result.returncode == 0:
+            sha = (result.stdout or "").strip()
+            return sha or None
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return None
+
+
+def _config_sha256(config: Any) -> Optional[str]:
+    """SHA-256 of the live configuration dict (canonical JSON)."""
+    try:
+        data = getattr(config, "_data", None)
+        if data is None and hasattr(config, "public_dict"):
+            data = config.public_dict()
+        if data is None:
+            return None
+        blob = json.dumps(data, sort_keys=True, default=str).encode("utf-8")
+        return hashlib.sha256(blob).hexdigest()
+    except (TypeError, ValueError):
+        return None
+
+
+def _package_version(name: str) -> Optional[str]:
+    try:
+        from importlib.metadata import PackageNotFoundError, version
+    except ImportError:
+        return None
+    try:
+        return version(name)
+    except PackageNotFoundError:
+        return None
+
+
+def opencv_snapshot() -> Dict[str, Any]:
+    """Report which OpenCV distributions are installed and which cv2 loaded."""
+    snapshot: Dict[str, Any] = {
+        "cv2_version": None,
+        "cv2_file": None,
+        "distributions": {
+            "opencv-python": _package_version("opencv-python"),
+            "opencv-python-headless": _package_version("opencv-python-headless"),
+            "opencv-contrib-python": _package_version("opencv-contrib-python"),
+        },
+    }
+    try:
+        import cv2
+
+        snapshot["cv2_version"] = getattr(cv2, "__version__", None)
+        snapshot["cv2_file"] = getattr(cv2, "__file__", None)
+    except Exception:
+        pass
+    return snapshot
+
+
+def collect_run_metadata(
+    config: Any,
+    run_id: str,
+    jsonl_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Static run identity for the sidecar (not a performance result)."""
+    preview_enabled = True
+    evaluation_mode = False
+    strict_camera = False
+    colab_mode = False
+    colab_fallback = False
+    dynamic_enabled = False
+    instrumentation_enabled = True
+    try:
+        if hasattr(config, "is_preview_enabled"):
+            preview_enabled = bool(config.is_preview_enabled())
+        if hasattr(config, "is_evaluation_mode"):
+            evaluation_mode = bool(config.is_evaluation_mode())
+        if hasattr(config, "is_strict_camera"):
+            strict_camera = bool(config.is_strict_camera())
+        if hasattr(config, "is_dynamic_gestures_enabled"):
+            dynamic_enabled = bool(config.is_dynamic_gestures_enabled())
+        if hasattr(config, "is_instrumentation_enabled"):
+            instrumentation_enabled = bool(config.is_instrumentation_enabled())
+        camera = getattr(config, "camera", None)
+        if camera is not None:
+            colab_mode = bool(getattr(camera, "colab_mode", False))
+            colab_fallback = bool(getattr(camera, "colab_fallback", False))
+    except AttributeError:
+        pass
+
+    return {
+        "schema": "hgria.run_metadata.v1",
+        "run_id": run_id,
+        "created_at": wall_iso(),
+        "git_sha": _git_sha(),
+        "config_sha256": _config_sha256(config),
+        "python": sys.version.split()[0],
+        "cwd": os.getcwd(),
+        "jsonl_path": jsonl_path,
+        "deployment_path": "local_opencv_server",
+        "preview_enabled": preview_enabled,
+        "evaluation_mode": evaluation_mode,
+        "strict_camera": strict_camera,
+        "colab_mode": colab_mode,
+        "colab_fallback": colab_fallback,
+        "dynamic_gestures_enabled": dynamic_enabled,
+        "instrumentation_enabled": instrumentation_enabled,
+        "opencv": opencv_snapshot(),
+        "packages": {
+            "mediapipe": _package_version("mediapipe"),
+            "numpy": _package_version("numpy"),
+            "scipy": _package_version("scipy"),
+            "onnxruntime": _package_version("onnxruntime"),
+            "flask": _package_version("flask"),
+        },
+        "validity": {
+            "opencv_baseline_invalid_if_colab_mode": True,
+            "note": (
+                "A copied log is identified by run_id + this sidecar. "
+                "If colab_mode is true the run is not a local OpenCV baseline."
+            ),
+        },
+    }

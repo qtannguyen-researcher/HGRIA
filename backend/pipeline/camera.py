@@ -204,19 +204,35 @@ class CameraModule:
         This handles the common case where the camera is already in use by
         another process (e.g. a Jupyter/Colab notebook) and the browser needs
         to supply frames instead.
+
+        When ``evaluation.strict_camera`` is true the exception is re-raised
+        so a measurement process cannot silently become a Colab/browser run.
+        On fallback, ``camera.colab_mode`` and ``camera.colab_fallback`` are
+        both set true so ``GET /api/debug`` can report the actual path.
         """
         try:
             return OpenCVCaptureStrategy(config)
         except CameraInitializationError as exc:
+            strict = False
+            try:
+                if hasattr(config, "is_strict_camera"):
+                    strict = bool(config.is_strict_camera())
+            except AttributeError:
+                strict = False
+            if strict:
+                raise
             import warnings
             warnings.warn(
                 f"Local camera unavailable ({exc}). "
-                "Falling back to browser-camera mode — frames must be POSTed to /api/frame.",
+                "Falling back to browser-camera mode — frames must be POSTed to /api/frame. "
+                "This process is NOT a valid local OpenCV baseline (colab_mode=true).",
                 RuntimeWarning,
                 stacklevel=3,
             )
-            # Patch the live config so the /api/frame endpoint becomes active.
+            # Patch the live config so the /api/frame endpoint becomes active
+            # and so /api/debug can report that fallback occurred.
             config._data["camera"]["colab_mode"] = True
+            config._data["camera"]["colab_fallback"] = True
             return ColabCaptureStrategy(self._frame_store)
 
     def capture(self) -> Optional["Frame"]:

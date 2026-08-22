@@ -229,6 +229,84 @@ class TestBaselineConfiguration:
             os.unlink(f.name)
         assert cm.is_instrumentation_enabled() is False
 
+    def test_preview_enabled_default_true(self):
+        """Demo default keeps JPEG preview on."""
+        cm = ConfigurationManager("config/config.json")
+        assert cm.evaluation.preview_enabled is True
+        assert cm.is_preview_enabled() is True
+
+    def test_preview_enabled_false_not_swallowed(self):
+        """JSON false must disable preview (must not use get() or-default)."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"evaluation": {"preview_enabled": False}}, f)
+            f.flush()
+            cm = ConfigurationManager(f.name)
+            os.unlink(f.name)
+        assert cm.is_preview_enabled() is False
+        # Existing get() bug would return the default True here.
+        assert cm.get("evaluation", "preview_enabled", True) is True
+
+    def test_strict_camera_default_off(self):
+        cm = ConfigurationManager("config/config.json")
+        assert cm.evaluation.strict_camera is False
+        assert cm.is_strict_camera() is False
+
+    def test_strict_camera_true(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"evaluation": {"strict_camera": True}}, f)
+            f.flush()
+            cm = ConfigurationManager(f.name)
+            os.unlink(f.name)
+        assert cm.is_strict_camera() is True
+
+    def test_run_id_empty_by_default(self):
+        cm = ConfigurationManager("config/config.json")
+        assert cm.instrumentation.run_id == ""
+        assert cm.run_id() == ""
+
+    def test_run_id_explicit(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"instrumentation": {"run_id": "phase3-a1"}}, f)
+            f.flush()
+            cm = ConfigurationManager(f.name)
+            os.unlink(f.name)
+        assert cm.run_id() == "phase3-a1"
+
+    def test_get_or_default_swallows_false_and_zero(self):
+        """Documented non-blocking: get() uses `or default`. Do not use it
+        for baseline/measurement flags. Helpers above must stay dict lookups.
+        """
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({
+                "evaluation": {"mode": False, "preview_enabled": False},
+                "camera": {"index": 0},
+            }, f)
+            f.flush()
+            cm = ConfigurationManager(f.name)
+            os.unlink(f.name)
+        assert cm.get("evaluation", "mode", True) is True
+        assert cm.get("evaluation", "preview_enabled", True) is True
+        assert cm.get("camera", "index", 99) == 99
+        assert cm.is_evaluation_mode() is False
+        assert cm.is_preview_enabled() is False
+        assert cm.camera.index == 0
+
+    def test_baseline_critical_fields_unchanged(self):
+        cm = ConfigurationManager("config/config.json")
+        assert cm.camera.colab_mode is False
+        assert cm.camera.frame_width == 640
+        assert cm.camera.frame_height == 480
+        assert cm.camera.target_fps == 30
+        assert cm.mediapipe.min_detection_confidence == 0.5
+        assert cm.mediapipe.min_tracking_confidence == 0.5
+        assert cm.mediapipe.max_num_hands == 1
+        assert cm.mediapipe.model_complexity == 0
+        assert cm.gesture_recognition.confidence_threshold == 0.75
+        assert cm.gesture_recognition.smoothing_window_size == 3
+        assert cm.gesture_recognition.noise_filter_blur_threshold == 30
+        assert cm.dynamic_gestures.enabled is False
+        assert cm.evaluation.mode is False
+
 
 # ===== Property 7: Configuration validation =====
 
