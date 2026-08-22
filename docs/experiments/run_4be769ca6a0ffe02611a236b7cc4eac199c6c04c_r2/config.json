@@ -1,0 +1,100 @@
+{
+  "camera": {
+    "index": 0,
+    "frame_width": 640,
+    "frame_height": 480,
+    "target_fps": 30,
+    "colab_mode": false,
+    "colab_fallback": false
+  },
+  "mediapipe": {
+    "min_detection_confidence": 0.5,
+    "min_tracking_confidence": 0.5,
+    "max_num_hands": 1,
+    "model_complexity": 0
+  },
+  "gesture_recognition": {
+    "confidence_threshold": 0.75,
+    "smoothing_window_size": 3,
+    "noise_filter_blur_threshold": 30,
+    "dominant_hand": "Right"
+  },
+  "gesture_cooldowns_ms": {
+    "open_palm": 500,
+    "closed_fist": 500,
+    "point_left": 300,
+    "point_right": 300,
+    "thumb_up": 500,
+    "victory": 500,
+    "stop": 1000,
+    "pinch": 400,
+    "ok": 500,
+    "SWIPE_LEFT": 400,
+    "SWIPE_RIGHT": 400,
+    "SWIPE_UP": 400,
+    "SWIPE_DOWN": 400,
+    "SWIPE_LEFT2": 400,
+    "SWIPE_RIGHT2": 400,
+    "SWIPE_UP2": 400,
+    "SWIPE_DOWN2": 400,
+    "SWIPE_LEFT3": 400,
+    "SWIPE_RIGHT3": 400,
+    "SWIPE_UP3": 400,
+    "SWIPE_DOWN3": 400,
+    "FAST_SWIPE_UP": 300,
+    "FAST_SWIPE_DOWN": 300,
+    "ZOOM_IN": 500,
+    "ZOOM_OUT": 500,
+    "DRAG": 0,
+    "DROP": 0,
+    "DRAG2": 0,
+    "DROP2": 0,
+    "DRAG3": 0,
+    "DROP3": 0,
+    "TAP": 300,
+    "DOUBLE_TAP": 500
+  },
+  "dynamic_gestures": {
+    "enabled": false,
+    "detection_model_path": "dynamic_gestures/models/hand_detector.onnx",
+    "classification_model_path": "dynamic_gestures/models/crops_classifier.onnx",
+    "max_age": 30,
+    "min_hits": 3,
+    "iou_threshold": 0.3,
+    "maxlen": 30,
+    "min_frames": 20
+  },
+  "server": {
+    "host": "0.0.0.0",
+    "port": 5000,
+    "websocket_path": "/socket.io/",
+    "cors_origins": "*",
+    "command_buffer_size": 10,
+    "command_buffer_ttl_seconds": 5
+  },
+  "logging": {
+    "level": "INFO",
+    "log_to_file": true,
+    "log_file_path": "logs/",
+    "log_raw_landmarks": false,
+    "max_log_file_size_mb": 10,
+    "max_log_files": 5
+  },
+  "debug": {
+    "debug_mode": false,
+    "show_landmark_overlay": false,
+    "log_pipeline_latency": false
+  },
+  "evaluation": {
+    "mode": false,
+    "preview_enabled": true,
+    "strict_camera": false
+  },
+  "instrumentation": {
+    "enabled": true,
+    "jsonl_path": "logs/instrumentation.jsonl",
+    "resource_sample_interval_s": 1.0,
+    "run_id": ""
+  },
+  "custom_gestures": []
+}

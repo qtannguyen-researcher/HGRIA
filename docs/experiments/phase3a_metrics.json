@@ -1,0 +1,347 @@
+[
+  {
+    "run": "r1",
+    "run_id": "phase3a-local-opencv-4be769ca6a0f-r1",
+    "validity": "VALID",
+    "invalid_reasons": [],
+    "processed_frames": 1920,
+    "jsonl_total_rows": 3217,
+    "duration_s": 62.99304056700021,
+    "wall_window_s": 63.02424,
+    "processed_fps": 30.479557467270745,
+    "mean_server_ms": 32.57616390104374,
+    "median_server_ms": 31.95730449988332,
+    "p95_server_ms": 37.432326250200276,
+    "p99_server_ms": 51.19014313875595,
+    "command_rate": 1.9049723417044215,
+    "commands_emitted": 120,
+    "dropped_frames": 0,
+    "cpu_mean_percent": 67.87908308676856,
+    "rss_min_mb": 281.578125,
+    "rss_mean_mb": 282.4350606282552,
+    "rss_max_mb": 282.9296875,
+    "funnel_counts": {
+      "no_hand": 364,
+      "noise": 194,
+      "temporal": 362,
+      "cooldown": 880,
+      "unmapped": 0,
+      "command": 120,
+      "null": 0,
+      "other": 0
+    },
+    "funnel_rates": {
+      "no_hand": 0.18958333333333333,
+      "noise": 0.10104166666666667,
+      "temporal": 0.18854166666666666,
+      "cooldown": 0.4583333333333333,
+      "unmapped": 0.0,
+      "command": 0.0625
+    },
+    "stages": {
+      "capture_ms": {
+        "n": 1920,
+        "p50": 23.029652999866812,
+        "p95": 27.393864000077883,
+        "p99": 27.997468339344778
+      },
+      "preprocess_ms": {
+        "n": 1920,
+        "p50": 0.415577000239864,
+        "p95": 0.5908434001867136,
+        "p99": 1.397342060026856
+      },
+      "mediapipe_ms": {
+        "n": 1920,
+        "p50": 8.078865500465326,
+        "p95": 22.639809449992754,
+        "p99": 26.393762790066827
+      },
+      "landmark_extraction_ms": {
+        "n": 1556,
+        "p50": 0.07006499981798697,
+        "p95": 0.13632449918077327,
+        "p99": 0.2471402504852449
+      },
+      "classification_ms": {
+        "n": 1556,
+        "p50": 0.07543300034740241,
+        "p95": 0.1267315001314273,
+        "p99": 0.1624222991267744
+      },
+      "noise_filter_ms": {
+        "n": 1556,
+        "p50": 0.008402999810641631,
+        "p95": 0.03534325060172705,
+        "p99": 0.05465650019687024
+      },
+      "temporal_filter_ms": {
+        "n": 1362,
+        "p50": 0.016271999811579008,
+        "p95": 0.031616100204701084,
+        "p99": 0.04544598006759779
+      },
+      "command_generation_ms": {
+        "n": 120,
+        "p50": 0.01560300006531179,
+        "p95": 0.033621799411776,
+        "p99": 0.04784578963153763
+      },
+      "total_server_ms": {
+        "n": 1920,
+        "p50": 31.95730449988332,
+        "p95": 37.432326250200276,
+        "p99": 51.19014313875595,
+        "mean": 32.57616390104374
+      }
+    },
+    "sidecar_opencv": {
+      "cv2_file": "/tmp/hgria-phase3a-venv/lib/python3.10/site-packages/cv2/__init__.py",
+      "cv2_version": "4.10.0",
+      "distributions": {
+        "opencv-contrib-python": "4.10.0.84",
+        "opencv-python": null,
+        "opencv-python-headless": "4.10.0.84"
+      }
+    },
+    "sidecar_flags": {
+      "evaluation_mode": true,
+      "preview_enabled": false,
+      "strict_camera": true,
+      "colab_mode": false,
+      "colab_fallback": false,
+      "dynamic_gestures_enabled": false,
+      "config_sha256_live": "f33ce7ab1c3367c4965b193d7569933483c361d472e15d4c54ff38997a08fc02"
+    }
+  },
+  {
+    "run": "r2",
+    "run_id": "phase3a-local-opencv-4be769ca6a0f-r2",
+    "validity": "VALID",
+    "invalid_reasons": [],
+    "processed_frames": 1921,
+    "jsonl_total_rows": 3463,
+    "duration_s": 63.015291838999474,
+    "wall_window_s": 63.027239,
+    "processed_fps": 30.48466402263195,
+    "mean_server_ms": 32.574291763657136,
+    "median_server_ms": 31.946368999342667,
+    "p95_server_ms": 39.453429000786855,
+    "p99_server_ms": 52.94285339987253,
+    "command_rate": 1.3647481030433877,
+    "commands_emitted": 86,
+    "dropped_frames": 0,
+    "cpu_mean_percent": 68.83673851731432,
+    "rss_min_mb": 278.9921875,
+    "rss_mean_mb": 280.1532201652785,
+    "rss_max_mb": 280.58984375,
+    "funnel_counts": {
+      "no_hand": 383,
+      "noise": 39,
+      "temporal": 582,
+      "cooldown": 831,
+      "unmapped": 0,
+      "command": 86,
+      "null": 0,
+      "other": 0
+    },
+    "funnel_rates": {
+      "no_hand": 0.1993753253513795,
+      "noise": 0.02030192608016658,
+      "temporal": 0.30296720458094745,
+      "cooldown": 0.43258719416970326,
+      "unmapped": 0.0,
+      "command": 0.04476834981780323
+    },
+    "stages": {
+      "capture_ms": {
+        "n": 1921,
+        "p50": 23.12980399983644,
+        "p95": 27.487331000884296,
+        "p99": 28.22850499978813
+      },
+      "preprocess_ms": {
+        "n": 1921,
+        "p50": 0.3600069994718069,
+        "p95": 0.5466570000862703,
+        "p99": 1.3335139999981038
+      },
+      "mediapipe_ms": {
+        "n": 1921,
+        "p50": 8.056668999415706,
+        "p95": 22.96258400019724,
+        "p99": 26.64659139918512
+      },
+      "landmark_extraction_ms": {
+        "n": 1538,
+        "p50": 0.06966699947952293,
+        "p95": 0.14097914927333458,
+        "p99": 0.2634836103061386
+      },
+      "classification_ms": {
+        "n": 1538,
+        "p50": 0.0734765008019167,
+        "p95": 0.13200335060901122,
+        "p99": 0.16544367055757894
+      },
+      "noise_filter_ms": {
+        "n": 1538,
+        "p50": 0.007604499842273071,
+        "p95": 0.021381300120992756,
+        "p99": 0.03708035037561785
+      },
+      "temporal_filter_ms": {
+        "n": 1499,
+        "p50": 0.015378000171040185,
+        "p95": 0.02931409981101751,
+        "p99": 0.04103081897483204
+      },
+      "command_generation_ms": {
+        "n": 86,
+        "p50": 0.015258499843184836,
+        "p95": 0.02409799981251126,
+        "p99": 0.05052790083937
+      },
+      "total_server_ms": {
+        "n": 1921,
+        "p50": 31.946368999342667,
+        "p95": 39.453429000786855,
+        "p99": 52.94285339987253,
+        "mean": 32.574291763657136
+      }
+    },
+    "sidecar_opencv": {
+      "cv2_file": "/tmp/hgria-phase3a-venv/lib/python3.10/site-packages/cv2/__init__.py",
+      "cv2_version": "4.10.0",
+      "distributions": {
+        "opencv-contrib-python": "4.10.0.84",
+        "opencv-python": null,
+        "opencv-python-headless": "4.10.0.84"
+      }
+    },
+    "sidecar_flags": {
+      "evaluation_mode": true,
+      "preview_enabled": false,
+      "strict_camera": true,
+      "colab_mode": false,
+      "colab_fallback": false,
+      "dynamic_gestures_enabled": false,
+      "config_sha256_live": "846e880e73298a0f729e301c4b597e20e6a0ca28399bc1101119f92f416d80bc"
+    }
+  },
+  {
+    "run": "r3",
+    "run_id": "phase3a-local-opencv-4be769ca6a0f-r3",
+    "validity": "VALID",
+    "invalid_reasons": [],
+    "processed_frames": 1920,
+    "jsonl_total_rows": 2882,
+    "duration_s": 62.97616284400101,
+    "wall_window_s": 63.027385,
+    "processed_fps": 30.48772604256716,
+    "mean_server_ms": 32.571446900501165,
+    "median_server_ms": 31.93033400020795,
+    "p95_server_ms": 36.70392465091936,
+    "p99_server_ms": 56.986439489701155,
+    "command_rate": 1.5720233740698693,
+    "commands_emitted": 99,
+    "dropped_frames": 0,
+    "cpu_mean_percent": 66.78155963364709,
+    "rss_min_mb": 279.26171875,
+    "rss_mean_mb": 279.88600463867186,
+    "rss_max_mb": 280.5859375,
+    "funnel_counts": {
+      "no_hand": 349,
+      "noise": 73,
+      "temporal": 450,
+      "cooldown": 949,
+      "unmapped": 0,
+      "command": 99,
+      "null": 0,
+      "other": 0
+    },
+    "funnel_rates": {
+      "no_hand": 0.18177083333333333,
+      "noise": 0.03802083333333333,
+      "temporal": 0.234375,
+      "cooldown": 0.4942708333333333,
+      "unmapped": 0.0,
+      "command": 0.0515625
+    },
+    "stages": {
+      "capture_ms": {
+        "n": 1920,
+        "p50": 23.044657499667665,
+        "p95": 27.512764199491357,
+        "p99": 28.493437640390763
+      },
+      "preprocess_ms": {
+        "n": 1920,
+        "p50": 0.3614190000007511,
+        "p95": 0.5653483489368226,
+        "p99": 1.4183761911226604
+      },
+      "mediapipe_ms": {
+        "n": 1920,
+        "p50": 8.08625050012779,
+        "p95": 17.36277800000606,
+        "p99": 26.260602460097264
+      },
+      "landmark_extraction_ms": {
+        "n": 1571,
+        "p50": 0.07004299914115109,
+        "p95": 0.14047899912839057,
+        "p99": 0.2524302997699122
+      },
+      "classification_ms": {
+        "n": 1571,
+        "p50": 0.07355399975494947,
+        "p95": 0.1287060003960505,
+        "p99": 0.17309079939877836
+      },
+      "noise_filter_ms": {
+        "n": 1571,
+        "p50": 0.007303999154828489,
+        "p95": 0.03191550058545545,
+        "p99": 0.04012499975942771
+      },
+      "temporal_filter_ms": {
+        "n": 1498,
+        "p50": 0.015895500837359577,
+        "p95": 0.03184340075677021,
+        "p99": 0.047384030895045726
+      },
+      "command_generation_ms": {
+        "n": 99,
+        "p50": 0.015169998732744716,
+        "p95": 0.03253120048611885,
+        "p99": 0.04272434111044271
+      },
+      "total_server_ms": {
+        "n": 1920,
+        "p50": 31.93033400020795,
+        "p95": 36.70392465091936,
+        "p99": 56.986439489701155,
+        "mean": 32.571446900501165
+      }
+    },
+    "sidecar_opencv": {
+      "cv2_file": "/tmp/hgria-phase3a-venv/lib/python3.10/site-packages/cv2/__init__.py",
+      "cv2_version": "4.10.0",
+      "distributions": {
+        "opencv-contrib-python": "4.10.0.84",
+        "opencv-python": null,
+        "opencv-python-headless": "4.10.0.84"
+      }
+    },
+    "sidecar_flags": {
+      "evaluation_mode": true,
+      "preview_enabled": false,
+      "strict_camera": true,
+      "colab_mode": false,
+      "colab_fallback": false,
+      "dynamic_gestures_enabled": false,
+      "config_sha256_live": "5900fea64e879ba091a86c4af0126f223dfd4ef0d2bf2362662f2d17f7767820"
+    }
+  }
+]

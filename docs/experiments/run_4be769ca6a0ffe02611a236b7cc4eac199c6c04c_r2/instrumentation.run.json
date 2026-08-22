@@ -1,0 +1,38 @@
+{
+  "colab_fallback": false,
+  "colab_mode": false,
+  "config_sha256": "846e880e73298a0f729e301c4b597e20e6a0ca28399bc1101119f92f416d80bc",
+  "created_at": "2026-08-22T03:47:59.122+00:00",
+  "cwd": "/home/qtannguyen/projects/researcher/HGRIA",
+  "deployment_path": "local_opencv_server",
+  "dynamic_gestures_enabled": false,
+  "evaluation_mode": true,
+  "git_sha": "4be769ca6a0ffe02611a236b7cc4eac199c6c04c",
+  "instrumentation_enabled": true,
+  "jsonl_path": "/home/qtannguyen/projects/researcher/HGRIA/docs/experiments/run_4be769ca6a0ffe02611a236b7cc4eac199c6c04c_r2/instrumentation.jsonl",
+  "opencv": {
+    "cv2_file": "/tmp/hgria-phase3a-venv/lib/python3.10/site-packages/cv2/__init__.py",
+    "cv2_version": "4.10.0",
+    "distributions": {
+      "opencv-contrib-python": "4.10.0.84",
+      "opencv-python": null,
+      "opencv-python-headless": "4.10.0.84"
+    }
+  },
+  "packages": {
+    "flask": "3.0.3",
+    "mediapipe": "0.10.14",
+    "numpy": "1.26.4",
+    "onnxruntime": "1.17.1",
+    "scipy": "1.15.3"
+  },
+  "preview_enabled": false,
+  "python": "3.10.12",
+  "run_id": "phase3a-local-opencv-4be769ca6a0f-r2",
+  "schema": "hgria.run_metadata.v1",
+  "strict_camera": true,
+  "validity": {
+    "note": "A copied log is identified by run_id + this sidecar. If colab_mode is true the run is not a local OpenCV baseline.",
+    "opencv_baseline_invalid_if_colab_mode": true
+  }
+}

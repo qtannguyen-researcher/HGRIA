@@ -1,0 +1,2 @@
+4.10.0
+/tmp/hgria-phase3a-venv/lib/python3.10/site-packages/cv2/__init__.py
