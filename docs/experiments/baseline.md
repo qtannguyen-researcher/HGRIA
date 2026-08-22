@@ -172,3 +172,16 @@ in the pipeline increments `commands_sent` / `gesture_counts` visible on that AP
 Do not treat README claims (e.g. sub-150 ms end-to-end, ≥ 85 % accuracy) as
 measurements of this baseline. Those are requirements or marketing text, not
 outputs of a run recorded here.
+
+## Infomations
+Baseline Commit:
+2de58ee8f49d07d1a4cc6f1fde942e3f908c4f4f
+
+Python:
+3.10.12
+
+Environment:
+See environment.txt
+
+Baseline Date:
+2026-08-22
