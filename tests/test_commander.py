@@ -124,12 +124,32 @@ class TestCommandGenerator:
 class TestCommandMap:
     """Tests for COMMAND_MAP."""
 
-    def test_all_nine_gestures_mapped(self):
-        """All 9 built-in gestures are in COMMAND_MAP."""
-        expected = {
-            "open_palm", "closed_fist", "point_left", "point_right",
-            "thumb_up", "victory", "stop", "pinch", "ok",
-        }
+    STATIC_GESTURES = {
+        "open_palm", "closed_fist", "point_left", "point_right",
+        "thumb_up", "victory", "stop", "pinch", "ok",
+    }
+
+    DYNAMIC_GESTURES = {
+        "SWIPE_LEFT", "SWIPE_RIGHT", "SWIPE_UP", "SWIPE_DOWN",
+        "SWIPE_LEFT2", "SWIPE_RIGHT2", "SWIPE_UP2", "SWIPE_DOWN2",
+        "SWIPE_LEFT3", "SWIPE_RIGHT3", "SWIPE_UP3", "SWIPE_DOWN3",
+        "FAST_SWIPE_UP", "FAST_SWIPE_DOWN",
+        "ZOOM_IN", "ZOOM_OUT",
+        "DRAG", "DROP", "DRAG2", "DROP2", "DRAG3", "DROP3",
+        "TAP", "DOUBLE_TAP",
+    }
+
+    def test_all_nine_static_gestures_mapped(self):
+        """All 9 built-in static gestures are in COMMAND_MAP."""
+        assert self.STATIC_GESTURES.issubset(COMMAND_MAP.keys())
+
+    def test_command_map_includes_dynamic_names(self):
+        """Dynamic event names currently in COMMAND_MAP remain mapped.
+
+        The map grew beyond the original 9 static keys; equality against only
+        those 9 is an obsolete assertion. This checks the current published set.
+        """
+        expected = self.STATIC_GESTURES | self.DYNAMIC_GESTURES
         assert set(COMMAND_MAP.keys()) == expected
 
     def test_command_types_are_valid(self):

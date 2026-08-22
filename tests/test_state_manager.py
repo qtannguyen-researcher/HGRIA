@@ -9,17 +9,36 @@ from backend.core.state_manager import (
 )
 
 
+class MockLogger:
+    """Mock logger for testing. Production always supplies a logger."""
+
+    def __init__(self):
+        self.warning_logged = False
+        self.info_logged = False
+
+    def warning(self, event, **kwargs):
+        if event == "invalid_transition":
+            self.warning_logged = True
+
+    def info(self, event, **kwargs):
+        self.info_logged = True
+
+
+def _sm():
+    return StateManager(None, MockLogger())
+
+
 class TestStateManager:
     """Tests for the state manager."""
 
     def test_initial_state_is_idle(self):
         """StateManager starts in IDLE state."""
-        sm = StateManager(None, None)
+        sm = _sm()
         assert sm.state == SystemState.IDLE
 
     def test_valid_transition_accepted(self):
         """Valid transition changes state and returns True."""
-        sm = StateManager(None, None)
+        sm = _sm()
 
         result = sm.transition("client_connected")
         assert result is True
@@ -38,7 +57,7 @@ class TestStateManager:
 
     def test_listener_notified_on_transition(self):
         """Registered listener is called on valid transition."""
-        sm = StateManager(None, None)
+        sm = _sm()
 
         notifications = []
         def listener(old, new):
@@ -52,7 +71,7 @@ class TestStateManager:
 
     def test_multiple_listeners_notified(self):
         """All registered listeners are called."""
-        sm = StateManager(None, None)
+        sm = _sm()
 
         calls = []
         sm.register_listener(lambda old, new: calls.append(1))
@@ -65,67 +84,110 @@ class TestStateManager:
         assert 2 in calls
 
     def test_all_valid_events_from_idle(self):
-        """IDLE state has correct valid events."""
-        sm = StateManager(None, None)
+        """IDLE state has correct valid events for the current table."""
+        sm = _sm()
         valid_events = sm.get_valid_events()
 
         assert "client_connected" in valid_events
         assert "shutdown" in valid_events
-        assert "hand_detected" not in valid_events  # Invalid from IDLE
+        # Pipeline may emit hand_detected before a client connects; IDLE stays IDLE.
+        assert "hand_detected" in valid_events
+        assert "no_hand_detected" in valid_events
 
 
-# ===== Test all 21 transitions =====
+# ===== Test all defined transitions =====
 
 class TestAllTransitions:
-    """Test all 21 defined transitions."""
+    """Test all currently defined FSM transitions."""
 
     def test_transitions_table_completeness(self):
-        """TRANSITION_TABLE has exactly 21 entries."""
-        assert len(TRANSITION_TABLE) == 21
+        """TRANSITION_TABLE matches the current 8-state FSM (not a stale count).
+
+        The original suite asserted exactly 21 entries. The table now includes
+        stay-in-state events (hand_detected, gesture_stable, no_hand_detected)
+        used by the live pipeline. Assert the actual key set so accidental
+        removals still fail, without requiring a magic number.
+        """
+        expected = {
+            (SystemState.IDLE,         "client_connected"),
+            (SystemState.IDLE,         "no_hand_detected"),
+            (SystemState.IDLE,         "hand_detected"),
+            (SystemState.IDLE,         "shutdown"),
+            (SystemState.SEARCHING,    "hand_detected"),
+            (SystemState.SEARCHING,    "no_hand_detected"),
+            (SystemState.SEARCHING,    "client_disconnected"),
+            (SystemState.SEARCHING,    "shutdown"),
+            (SystemState.TRACKING,     "hand_detected"),
+            (SystemState.TRACKING,     "no_hand_detected"),
+            (SystemState.TRACKING,     "gesture_stable"),
+            (SystemState.TRACKING,     "stop_gesture"),
+            (SystemState.TRACKING,     "client_disconnected"),
+            (SystemState.TRACKING,     "shutdown"),
+            (SystemState.RECOGNIZING,  "hand_detected"),
+            (SystemState.RECOGNIZING,  "gesture_stable"),
+            (SystemState.RECOGNIZING,  "gesture_changed"),
+            (SystemState.RECOGNIZING,  "command_emitted"),
+            (SystemState.RECOGNIZING,  "stop_gesture"),
+            (SystemState.RECOGNIZING,  "no_hand_detected"),
+            (SystemState.RECOGNIZING,  "client_disconnected"),
+            (SystemState.EXECUTING,    "command_processed"),
+            (SystemState.EXECUTING,    "stop_gesture"),
+            (SystemState.EXECUTING,    "hand_detected"),
+            (SystemState.PAUSED,       "stop_gesture"),
+            (SystemState.PAUSED,       "client_disconnected"),
+            (SystemState.PAUSED,       "shutdown"),
+            (SystemState.DISCONNECTED, "client_connected"),
+            (SystemState.DISCONNECTED, "max_retries_exceeded"),
+        }
+        assert set(TRANSITION_TABLE.keys()) == expected
 
     def test_idle_transitions(self):
         """IDLE state transitions work correctly."""
-        sm = StateManager(None, None)
+        sm = _sm()
 
         sm.transition("client_connected")
         assert sm.state == SystemState.SEARCHING
 
-        sm2 = StateManager(None, None)
+        sm2 = _sm()
         sm2.transition("shutdown")
         assert sm2.state == SystemState.SHUTDOWN
 
     def test_searching_transitions(self):
         """SEARCHING state transitions work correctly."""
-        sm = StateManager(None, None)
+        sm = _sm()
         sm.transition("client_connected")  # IDLE -> SEARCHING
 
         sm.transition("hand_detected")
         assert sm.state == SystemState.TRACKING
 
-        sm2 = StateManager(None, None)
+        sm2 = _sm()
         sm2.transition("client_connected")
         sm2.transition("client_disconnected")
         assert sm2.state == SystemState.DISCONNECTED
 
     def test_tracking_transitions(self):
-        """TRACKING state transitions work correctly."""
-        sm = StateManager(None, None)
-        # Navigate to TRACKING
+        """TRACKING state transitions work correctly (independent instances)."""
+        sm = _sm()
         sm.transition("client_connected")
         sm.transition("hand_detected")
-
         sm.transition("no_hand_detected")
         assert sm.state == SystemState.SEARCHING
 
-        sm.transition("gesture_stable")
-        assert sm.state == SystemState.RECOGNIZING
+        sm2 = _sm()
+        sm2.transition("client_connected")
+        sm2.transition("hand_detected")
+        sm2.transition("gesture_stable")
+        assert sm2.state == SystemState.RECOGNIZING
 
-        sm.transition("stop_gesture")
-        assert sm.state == SystemState.PAUSED
+        sm3 = _sm()
+        sm3.transition("client_connected")
+        sm3.transition("hand_detected")
+        sm3.transition("stop_gesture")
+        assert sm3.state == SystemState.PAUSED
 
     def test_recognizing_transitions(self):
         """RECOGNIZING state transitions work correctly."""
-        sm = StateManager(None, None)
+        sm = _sm()
         sm.transition("client_connected")
         sm.transition("hand_detected")
         sm.transition("gesture_stable")
@@ -135,7 +197,7 @@ class TestAllTransitions:
 
     def test_executing_transitions(self):
         """EXECUTING state transitions work correctly."""
-        sm = StateManager(None, None)
+        sm = _sm()
         sm.transition("client_connected")
         sm.transition("hand_detected")
         sm.transition("gesture_stable")
@@ -149,10 +211,9 @@ class TestAllTransitions:
 
     def test_paused_toggle(self):
         """PAUSED state toggles back to TRACKING on stop_gesture."""
-        sm = StateManager(None, None)
+        sm = _sm()
         sm.transition("client_connected")
         sm.transition("hand_detected")
-        sm.transition("gesture_stable")
         sm.transition("stop_gesture")  # TRACKING -> PAUSED
 
         sm.transition("stop_gesture")  # PAUSED -> TRACKING (toggle)
@@ -160,7 +221,7 @@ class TestAllTransitions:
 
     def test_disconnected_reconnects(self):
         """DISCONNECTED can reconnect to SEARCHING."""
-        sm = StateManager(None, None)
+        sm = _sm()
         sm.transition("client_connected")
         sm.transition("hand_detected")
         sm.transition("no_hand_detected")
@@ -170,18 +231,3 @@ class TestAllTransitions:
 
         sm.transition("client_connected")
         assert sm.state == SystemState.SEARCHING
-
-
-class MockLogger:
-    """Mock logger for testing."""
-
-    def __init__(self):
-        self.warning_logged = False
-        self.info_logged = False
-
-    def warning(self, event, **kwargs):
-        if event == "invalid_transition":
-            self.warning_logged = True
-
-    def info(self, event, **kwargs):
-        self.info_logged = True

@@ -34,15 +34,17 @@ DEFAULTS: Dict[str, Any] = {
         "colab_mode": False,
     },
     "mediapipe": {
-        "min_detection_confidence": 0.7,
+        # Aligned with config/config.json (baseline source of truth).
+        "min_detection_confidence": 0.5,
         "min_tracking_confidence": 0.5,
         "max_num_hands": 1,
         "model_complexity": 0,
     },
     "gesture_recognition": {
         "confidence_threshold": 0.75,
-        "smoothing_window_size": 5,
-        "noise_filter_blur_threshold": 100,
+        # Aligned with config/config.json (baseline source of truth).
+        "smoothing_window_size": 3,
+        "noise_filter_blur_threshold": 30,
         "dominant_hand": "Right",
     },
     "gesture_cooldowns_ms": {
@@ -102,7 +104,9 @@ DEFAULTS: Dict[str, Any] = {
     "logging": {
         "level": "INFO",
         "log_to_file": True,
-        "log_file_path": "/content/drive/MyDrive/HGRIA/logs/",
+        # Relative to process CWD (typically the repo root). Machine-specific
+        # and Colab Drive paths are not reproducible across checkouts.
+        "log_file_path": "logs/",
         "log_raw_landmarks": False,
         "max_log_file_size_mb": 10,
         "max_log_files": 5,
@@ -111,6 +115,9 @@ DEFAULTS: Dict[str, Any] = {
         "debug_mode": False,
         "show_landmark_overlay": False,
         "log_pipeline_latency": False,
+    },
+    "evaluation": {
+        "mode": False,
     },
     "custom_gestures": [],
 }
@@ -274,3 +281,25 @@ class ConfigurationManager:
     def get(self, section: str, param: str, default: Any = None) -> Any:
         """Get a config value with a default."""
         return self._get_nested(section, param) or default
+
+    def is_dynamic_gestures_enabled(self) -> bool:
+        """Return True only when dynamic_gestures.enabled is explicitly true.
+
+        Missing section or a false/absent flag both mean the static-only path.
+        Uses dict lookup so a JSON ``false`` is not swallowed (unlike ``get()``).
+        """
+        section = self._data.get("dynamic_gestures")
+        if not isinstance(section, dict):
+            return False
+        return bool(section.get("enabled", False))
+
+    def is_evaluation_mode(self) -> bool:
+        """Return True when evaluation.mode is enabled.
+
+        Evaluation mode is a run-time restriction for benchmark/eval sessions:
+        client UI bypass and keyboard command injection must be disabled.
+        """
+        section = self._data.get("evaluation")
+        if not isinstance(section, dict):
+            return False
+        return bool(section.get("mode", False))

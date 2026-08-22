@@ -94,10 +94,9 @@ class SocketClient {
 
             // Client-side shortcut: inject a synthetic command for UI gestures
             // that need instant response regardless of server-side cooldown.
-            // This handles the case where victory/stop was recently emitted and
-            // is still on cooldown when the user needs it (e.g. game-over screen).
+            // Disabled in evaluation mode so commands originate from the pipeline.
             const UI_BYPASS = new Set(['victory', 'stop', 'ok', 'DOUBLE_TAP']);
-            if (UI_BYPASS.has(data.gesture_name)) {
+            if (!isEvaluationMode(this.#gameState) && UI_BYPASS.has(data.gesture_name)) {
                 const now = performance.now();
                 const key = `_bypass_${data.gesture_name}`;
                 const last = this.#gameState[key] || 0;

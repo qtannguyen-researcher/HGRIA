@@ -6,6 +6,19 @@ from backend.pipeline.filter import NoiseFilter, TemporalFilter
 from tests.fixtures import build_frame, build_landmark, build_prediction
 
 
+class _MockNoiseConfig:
+    """Minimal config for NoiseFilter (must expose camera.colab_mode)."""
+
+    class GestureRecognition:
+        noise_filter_blur_threshold = 100
+
+    class Camera:
+        colab_mode = False
+
+    gesture_recognition = GestureRecognition()
+    camera = Camera()
+
+
 # ===== Test: NoiseFilter =====
 
 class TestNoiseFilter:
@@ -18,12 +31,7 @@ class TestNoiseFilter:
         pred = build_prediction("open_palm", 0.9)
 
         # Create a mock config
-        class MockConfig:
-            class GestureRecognition:
-                noise_filter_blur_threshold = 100
-            gesture_recognition = GestureRecognition()
-
-        nf = NoiseFilter(MockConfig())
+        nf = NoiseFilter(_MockNoiseConfig())
         result = nf.filter(pred, lm, frame)
 
         assert result.is_filtered is True
@@ -37,12 +45,7 @@ class TestNoiseFilter:
         frame = build_frame(blur_score=200.0)
         pred = build_prediction("open_palm", 0.9)
 
-        class MockConfig:
-            class GestureRecognition:
-                noise_filter_blur_threshold = 100
-            gesture_recognition = GestureRecognition()
-
-        nf = NoiseFilter(MockConfig())
+        nf = NoiseFilter(_MockNoiseConfig())
         result = nf.filter(pred, lm, frame)
 
         assert result.is_filtered is True
@@ -58,12 +61,7 @@ class TestNoiseFilter:
         frame = build_frame(blur_score=200.0)
         pred = build_prediction("open_palm", 0.9)
 
-        class MockConfig:
-            class GestureRecognition:
-                noise_filter_blur_threshold = 100
-            gesture_recognition = GestureRecognition()
-
-        nf = NoiseFilter(MockConfig())
+        nf = NoiseFilter(_MockNoiseConfig())
         result = nf.filter(pred, lm, frame)
 
         assert result.is_filtered is True
@@ -75,12 +73,7 @@ class TestNoiseFilter:
         frame = build_frame(blur_score=200.0)
         pred = build_prediction("open_palm", 0.9)
 
-        class MockConfig:
-            class GestureRecognition:
-                noise_filter_blur_threshold = 100
-            gesture_recognition = GestureRecognition()
-
-        nf = NoiseFilter(MockConfig())
+        nf = NoiseFilter(_MockNoiseConfig())
         result = nf.filter(pred, lm, frame)
 
         assert result.is_filtered is False

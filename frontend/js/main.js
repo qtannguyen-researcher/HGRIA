@@ -89,8 +89,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('click',   resumeAudio, { once: true });
     document.addEventListener('keydown', resumeAudio, { once: true });
 
-    // ── Keyboard fallback ────────────────────────────────────────────────
+    // ── Keyboard fallback (demo only; disabled in evaluation mode) ────────
     document.addEventListener('keydown', (e) => {
+        if (isEvaluationMode(gameState)) return;
+
         const gesture = KEYBOARD_MAP[e.code];
         if (!gesture) return;
         e.preventDefault();

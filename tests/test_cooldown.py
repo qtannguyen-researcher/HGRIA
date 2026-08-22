@@ -1,6 +1,7 @@
 """Tests for CooldownManager."""
 
 import time
+from unittest.mock import patch
 
 import pytest
 
@@ -112,18 +113,25 @@ class TestCooldownMonotonicity:
     """Property 4: Cooldown is monotonic."""
 
     def test_no_call_within_cooldown_window(self):
-        """After first emission, calls within cooldown window return None."""
+        """After first emission, calls within cooldown window return None.
+
+        Uses a frozen monotonic clock. Wall-clock ``sleep`` overshoots the
+        200 ms window and is not a valid assertion of the cooldown invariant.
+        """
         class MockConfig:
             gesture_cooldowns_ms = {"open_palm": 200}
 
         cm = CooldownManager(MockConfig())
+        t0 = 1000.0
 
-        # First call passes
-        first = cm.check("open_palm", 1.0)
-        assert first is not None
+        with patch("backend.pipeline.cooldown.time.monotonic", return_value=t0):
+            first = cm.check("open_palm", 1.0)
+            assert first is not None
 
-        # Calls within 200ms window return None
-        for i in range(1, 200, 20):
-            time.sleep(0.02)
-            result = cm.check("open_palm", 1.0)
-            assert result is None, f"Call at {i}ms should be blocked"
+        for elapsed_ms in range(1, 200, 20):
+            with patch(
+                "backend.pipeline.cooldown.time.monotonic",
+                return_value=t0 + elapsed_ms / 1000.0,
+            ):
+                result = cm.check("open_palm", 1.0)
+                assert result is None, f"Call at {elapsed_ms}ms should be blocked"

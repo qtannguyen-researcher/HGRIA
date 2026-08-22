@@ -157,6 +157,62 @@ class TestConfigurationManager:
             os.unlink(f.name)
 
 
+class TestBaselineConfiguration:
+    """config.json is the experiment source of truth; DEFAULTS must not drift."""
+
+    def test_dynamic_gestures_disabled_in_committed_config(self):
+        """Baseline freezes the static path: dynamic_gestures.enabled is false."""
+        cm = ConfigurationManager("config/config.json")
+        assert cm.dynamic_gestures.enabled is False
+        assert cm.is_dynamic_gestures_enabled() is False
+
+    def test_dynamic_enabled_flag_not_section_presence(self):
+        """Section presence must not enable the dynamic path."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"dynamic_gestures": {"enabled": False}}, f)
+            f.flush()
+            cm = ConfigurationManager(f.name)
+            os.unlink(f.name)
+        assert cm.is_dynamic_gestures_enabled() is False
+
+    def test_dynamic_enabled_true_is_respected(self):
+        """enabled=true is still readable without changing dynamic implementation."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"dynamic_gestures": {"enabled": True}}, f)
+            f.flush()
+            cm = ConfigurationManager(f.name)
+            os.unlink(f.name)
+        assert cm.is_dynamic_gestures_enabled() is True
+
+    def test_baseline_fields_match_config_and_defaults(self):
+        """Committed config and DEFAULTS agree on baseline-critical fields."""
+        cm = ConfigurationManager("config/config.json")
+        assert cm.mediapipe.min_detection_confidence == 0.5
+        assert DEFAULTS["mediapipe"]["min_detection_confidence"] == 0.5
+        assert cm.gesture_recognition.smoothing_window_size == 3
+        assert DEFAULTS["gesture_recognition"]["smoothing_window_size"] == 3
+        assert cm.gesture_recognition.noise_filter_blur_threshold == 30
+        assert DEFAULTS["gesture_recognition"]["noise_filter_blur_threshold"] == 30
+        assert cm.logging.log_file_path == "logs/"
+        assert DEFAULTS["logging"]["log_file_path"] == "logs/"
+        assert DEFAULTS["dynamic_gestures"]["enabled"] is False
+
+    def test_evaluation_mode_default_off(self):
+        """Demo/dev default is evaluation.mode=false."""
+        cm = ConfigurationManager("config/config.json")
+        assert cm.evaluation.mode is False
+        assert cm.is_evaluation_mode() is False
+
+    def test_evaluation_mode_true(self):
+        """evaluation.mode=true is readable for eval runs."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"evaluation": {"mode": True}}, f)
+            f.flush()
+            cm = ConfigurationManager(f.name)
+            os.unlink(f.name)
+        assert cm.is_evaluation_mode() is True
+
+
 # ===== Property 7: Configuration validation =====
 
 class TestConfigurationValidation:

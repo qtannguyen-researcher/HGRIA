@@ -36,7 +36,37 @@ const CONFIG = {
     
     // Command queue
     MAX_COMMAND_QUEUE: 10,
+
+    // Evaluation mode: URL ?evaluation=true|1|yes forces client restrictions
+    // even before server_info arrives. Server config evaluation.mode also
+    // enables this via GameState.applyServerInfo.
+    get EVALUATION_MODE() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const value = (params.get('evaluation') || '').toLowerCase();
+            return value === '1' || value === 'true' || value === 'yes';
+        } catch (e) {
+            return false;
+        }
+    },
 };
+
+/**
+ * True when benchmark/evaluation restrictions are active.
+ * URL flag OR server config evaluation.mode (once GameState has it).
+ * Demo keyboard fallback and UI_BYPASS remain available when this is false.
+ * @param {GameState} [gameState]
+ * @returns {boolean}
+ */
+function isEvaluationMode(gameState) {
+    if (typeof CONFIG !== 'undefined' && CONFIG.EVALUATION_MODE) {
+        return true;
+    }
+    if (gameState && gameState.evaluationMode) {
+        return true;
+    }
+    return false;
+}
 
 // ===== Gesture Guide Map =====
 const GESTURE_GUIDE = {
@@ -142,5 +172,5 @@ function safeGestureName(name) {
 
 // Export for module usage
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { CONFIG, GESTURE_GUIDE, VALID_GESTURE_NAMES, SAFE_GESTURE_RE, safeGestureName };
+    module.exports = { CONFIG, GESTURE_GUIDE, VALID_GESTURE_NAMES, SAFE_GESTURE_RE, safeGestureName, isEvaluationMode };
 }

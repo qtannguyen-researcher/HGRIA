@@ -14,4 +14,4 @@ python-engineio==4.9.1
 # Dynamic gesture dependencies
 onnxruntime==1.17.1
 filterpy==1.4.5
-scipy>=1.11.0
+scipy==1.15.3

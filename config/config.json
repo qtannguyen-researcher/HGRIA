@@ -54,7 +54,7 @@
     "DOUBLE_TAP": 500
   },
   "dynamic_gestures": {
-    "enabled": true,
+    "enabled": false,
     "detection_model_path": "dynamic_gestures/models/hand_detector.onnx",
     "classification_model_path": "dynamic_gestures/models/crops_classifier.onnx",
     "max_age": 30,
@@ -74,7 +74,7 @@
   "logging": {
     "level": "INFO",
     "log_to_file": true,
-    "log_file_path": "/home/qtannguyen/projects/researcher/HGRIA/logs/",
+    "log_file_path": "logs/",
     "log_raw_landmarks": false,
     "max_log_file_size_mb": 10,
     "max_log_files": 5
@@ -83,6 +83,9 @@
     "debug_mode": false,
     "show_landmark_overlay": false,
     "log_pipeline_latency": false
+  },
+  "evaluation": {
+    "mode": false
   },
   "custom_gestures": []
 }

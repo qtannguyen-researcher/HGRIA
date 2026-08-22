@@ -37,6 +37,7 @@ class PipelineRunner:
         detector: Any = None,
         logger: Any = None,
         socketio: Any = None,
+        session: Any = None,
     ) -> None:
         """
         Initialise the pipeline runner.
@@ -49,6 +50,7 @@ class PipelineRunner:
             detector: Optional pre-created HandDetector.
             logger: Optional logger.
             socketio: Optional SocketIO instance for emitting preview frames.
+            session: Optional shared Session. If omitted a new Session is created.
         """
         self._config = config
         self._command_queue = command_queue
@@ -86,13 +88,15 @@ class PipelineRunner:
         self._temporal_filter = TemporalFilter(config)
         self._cooldown_manager = CooldownManager(config, logger)
 
-        # Dynamic gesture recognizer (optional – skipped if not configured)
+        # Dynamic gesture recognizer (optional – skipped unless enabled)
         self._dynamic_recognizer: Optional[Any] = None
         self._init_dynamic_recognizer(config)
 
-        # Session + command generator
+        # Session + command generator. The same Session instance must be shared
+        # with SystemOrchestrator and the Flask /api/session routes; otherwise
+        # pipeline-recorded commands never appear in the HTTP session API.
         from backend.core.models import Session
-        self._session = Session()
+        self._session = session if session is not None else Session()
         self._command_generator = CommandGenerator(config, self._session)
 
         # Error handler
@@ -112,17 +116,29 @@ class PipelineRunner:
         self._blur_history: Deque[float] = deque(maxlen=30)
 
     def _init_dynamic_recognizer(self, config: "ConfigurationManager") -> None:
-        """Initialise the DynamicGestureRecognizer if the config section exists."""
+        """Initialise the DynamicGestureRecognizer only when enabled is true.
+
+        The baseline path is static MediaPipe/rule-based recognition. The
+        dynamic ONNX implementation is left in the tree but must not load
+        unless ``dynamic_gestures.enabled`` is explicitly true.
+        """
+        enabled = False
         try:
-            # ConfigurationManager raises AttributeError when the section
-            # is absent, so we guard here to keep the static path working
-            # without requiring the dynamic_gestures section.
-            _ = config.dynamic_gestures
+            enabled = config.is_dynamic_gestures_enabled()
         except AttributeError:
+            # Older/minimal config objects may lack the helper; fall back to
+            # reading the flag without treating section presence as enabled.
+            try:
+                dg_cfg = config.dynamic_gestures
+                enabled = bool(getattr(dg_cfg, "enabled", False))
+            except AttributeError:
+                enabled = False
+
+        if not enabled:
             if self._logger:
                 self._logger.info(
                     "dynamic_gestures_disabled",
-                    reason="no dynamic_gestures section in config",
+                    reason="dynamic_gestures.enabled is false",
                     module="pipeline_runner",
                 )
             return
@@ -366,6 +382,11 @@ class PipelineRunner:
                     error=str(exc),
                     module="pipeline_runner",
                 )
+
+    @property
+    def session(self) -> Any:
+        """Session used by CommandGenerator (shared with the Flask API)."""
+        return self._session
 
     @property
     def camera(self) -> "CameraModule":

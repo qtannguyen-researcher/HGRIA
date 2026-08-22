@@ -82,6 +82,7 @@ class SystemOrchestrator:
                 self._config, self._cmd_queue, self._state_manager,
                 camera=camera, detector=detector, logger=self._logger,
                 socketio=self._socketio,
+                session=self._session,
             )
             # Expose pipeline to Flask routes for /api/debug
             self._app.config["HG_PIPELINE"] = self._pipeline

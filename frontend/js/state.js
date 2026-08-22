@@ -34,6 +34,11 @@ class GameState {
         
         // Error state
         this.errorMessage = null;
+
+        // Evaluation mode: URL flag at construction; OR-ed with server config
+        // when server_info arrives. When true, UI_BYPASS and keyboard injection
+        // must not enqueue commands — only the server pipeline may.
+        this.evaluationMode = (typeof CONFIG !== 'undefined' && CONFIG.EVALUATION_MODE);
         
         // Command queue (max 10)
         this.#inputQueue = [];
@@ -119,6 +124,9 @@ class GameState {
         this.sessionId = session_id;
         this.gameRunning = true;
         this.errorMessage = null;
+        const serverEval = !!(config && config.evaluation && config.evaluation.mode);
+        this.evaluationMode = this.evaluationMode || serverEval ||
+            (typeof CONFIG !== 'undefined' && CONFIG.EVALUATION_MODE);
     }
     
     /**

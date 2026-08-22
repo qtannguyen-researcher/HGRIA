@@ -154,8 +154,37 @@ class TestFrameEndpoint:
         # May return 400 or 204 depending on implementation
         assert response.status_code in (400, 204)
 
-    def test_post_frame_without_image_returns_400(self, client):
-        """POST /api/frame without image field returns 400."""
+    def test_post_frame_without_image_returns_204_when_colab_mode_off(self, client):
+        """POST /api/frame is inactive when colab_mode is false (baseline)."""
+        response = client.post(
+            "/api/frame",
+            json={},
+            content_type="application/json",
+        )
+        assert response.status_code == 204
+
+    def test_post_frame_without_image_returns_400_when_colab_mode_on(
+        self, test_session, test_state_manager, command_queue
+    ):
+        """POST /api/frame without image returns 400 when the endpoint is active."""
+        import json
+        import os
+        import tempfile
+
+        from backend.app import create_app
+        from backend.core.configuration import ConfigurationManager
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"camera": {"colab_mode": True}}, f)
+            f.flush()
+            config = ConfigurationManager(f.name)
+            os.unlink(f.name)
+
+        app, _ = create_app(
+            config, test_session, test_state_manager, command_queue, None
+        )
+        app.config["TESTING"] = True
+        client = app.test_client()
         response = client.post(
             "/api/frame",
             json={},
@@ -194,3 +223,66 @@ class TestInputSanitisation:
         )
         # Should be rejected or handled gracefully
         assert response.status_code in (200, 400)
+
+
+class TestSessionSharedWithPipeline:
+    """GET /api/session must reflect commands recorded by the pipeline Session."""
+
+    def test_pipeline_recorded_command_visible_via_api(
+        self, flask_app, test_session, test_config
+    ):
+        """CommandGenerator writing to the Flask session updates /api/session."""
+        from backend.pipeline.commander import CommandGenerator
+
+        app, _ = flask_app
+        client = app.test_client()
+
+        before = client.get("/api/session").get_json()
+        assert before["commands_sent"] == 0
+
+        gen = CommandGenerator(test_config, test_session)
+        gen.generate({"gesture_name": "open_palm", "confidence": 0.9})
+
+        after = client.get("/api/session").get_json()
+        assert after["session_id"] == test_session.session_id
+        assert after["commands_sent"] == 1
+        assert after["gesture_counts"].get("open_palm") == 1
+
+
+class TestTestEmitEvaluationMode:
+    """ /api/test-emit is a demo helper; it must not fire in evaluation mode. """
+
+    def test_test_emit_allowed_when_evaluation_off(self, client):
+        """Default demo config still allows /api/test-emit."""
+        response = client.get("/api/test-emit?gesture=point_left")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["ok"] is True
+
+    def test_test_emit_forbidden_in_evaluation_mode(
+        self, test_session, test_state_manager, command_queue
+    ):
+        """Evaluation mode blocks synthetic HTTP command injection."""
+        import json
+        import os
+        import tempfile
+
+        from backend.app import create_app
+        from backend.core.configuration import ConfigurationManager
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"evaluation": {"mode": True}}, f)
+            f.flush()
+            config = ConfigurationManager(f.name)
+            os.unlink(f.name)
+
+        app, _ = create_app(
+            config, test_session, test_state_manager, command_queue, None
+        )
+        app.config["TESTING"] = True
+        client = app.test_client()
+
+        response = client.get("/api/test-emit?gesture=point_left")
+        assert response.status_code == 403
+        data = response.get_json()
+        assert data["ok"] is False

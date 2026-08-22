@@ -139,6 +139,11 @@ def create_app(
             data = request.get_json(silent=True) or {}
             gesture = data.get("gesture", "point_left")
         import uuid, datetime
+        if hasattr(config, "is_evaluation_mode") and config.is_evaluation_mode():
+            return jsonify({
+                "ok": False,
+                "error": "test-emit is disabled in evaluation mode",
+            }), 403
         payload = {
             "command_id":    str(uuid.uuid4()),
             "session_id":    session.session_id,
