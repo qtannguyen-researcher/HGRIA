@@ -387,11 +387,26 @@ def instrumentation_config(config: Any) -> Dict[str, Any]:
     except (AttributeError, TypeError):
         run_id = ""
 
+    client_jsonl_path = "logs/client_instrumentation.jsonl"
+    try:
+        if hasattr(config, "client_jsonl_path"):
+            client_jsonl_path = str(config.client_jsonl_path() or client_jsonl_path)
+        else:
+            section = getattr(config, "instrumentation", None)
+            if section is not None:
+                client_jsonl_path = str(
+                    getattr(section, "client_jsonl_path", client_jsonl_path)
+                    or client_jsonl_path
+                )
+    except (AttributeError, TypeError):
+        client_jsonl_path = "logs/client_instrumentation.jsonl"
+
     return {
         "enabled": enabled,
         "jsonl_path": jsonl_path,
         "resource_sample_interval_s": interval_s,
         "run_id": run_id,
+        "client_jsonl_path": client_jsonl_path,
     }
 
 
@@ -399,6 +414,15 @@ def build_experiment_logger(config: Any) -> ExperimentLogger:
     """Construct an ExperimentLogger from config (relative default path)."""
     cfg = instrumentation_config(config)
     return ExperimentLogger(path=cfg["jsonl_path"], enabled=cfg["enabled"])
+
+
+def build_client_experiment_logger(config: Any) -> ExperimentLogger:
+    """Construct the browser-side measurement JSONL writer.
+
+    Uses ``instrumentation.client_jsonl_path``. Recognition is unaffected.
+    """
+    cfg = instrumentation_config(config)
+    return ExperimentLogger(path=cfg["client_jsonl_path"], enabled=cfg["enabled"])
 
 
 def resolve_run_id(config: Any) -> str:
@@ -513,6 +537,7 @@ def collect_run_metadata(
     strict_camera = False
     colab_mode = False
     colab_fallback = False
+    browser_source = False
     dynamic_enabled = False
     instrumentation_enabled = True
     try:
@@ -527,9 +552,13 @@ def collect_run_metadata(
         if hasattr(config, "is_instrumentation_enabled"):
             instrumentation_enabled = bool(config.is_instrumentation_enabled())
         camera = getattr(config, "camera", None)
+        if hasattr(config, "is_browser_source"):
+            browser_source = bool(config.is_browser_source())
         if camera is not None:
             colab_mode = bool(getattr(camera, "colab_mode", False))
             colab_fallback = bool(getattr(camera, "colab_fallback", False))
+            if not browser_source:
+                browser_source = bool(getattr(camera, "browser_source", False))
     except AttributeError:
         pass
 
@@ -548,6 +577,7 @@ def collect_run_metadata(
         "strict_camera": strict_camera,
         "colab_mode": colab_mode,
         "colab_fallback": colab_fallback,
+        "browser_source": browser_source,
         "dynamic_gestures_enabled": dynamic_enabled,
         "instrumentation_enabled": instrumentation_enabled,
         "opencv": opencv_snapshot(),

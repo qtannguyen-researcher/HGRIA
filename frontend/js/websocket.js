@@ -83,6 +83,15 @@ class SocketClient {
         });
         
         socket.on('gesture_command', (data) => {
+            const tRecv = (typeof performance !== 'undefined' && performance.now)
+                ? performance.now()
+                : null;
+            if (typeof HGRIA_CLIENT_LOG !== 'undefined' && HGRIA_CLIENT_LOG.recordCommandReceive) {
+                HGRIA_CLIENT_LOG.recordCommandReceive({
+                    frame_id: data && data.frame_id,
+                    t_client_cmd_recv: tRecv,
+                });
+            }
             window._dbgLog && window._dbgLog('CMD','#0ff', `gesture_command: ${data.gesture_name} [${data.command_type}]`);
             console.debug('[gesture_command]', data.gesture_name, data.command_type, data.command_value);
             this.#gameState.enqueueCommand(data);

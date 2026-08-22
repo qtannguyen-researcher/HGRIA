@@ -69,6 +69,8 @@ def create_app(
     app.config["HG_STATE_MANAGER"] = state_manager
     app.config["HG_COMMAND_QUEUE"] = command_queue
     app.config["HG_LOGGER"] = logger
+    from backend.utils.instrumentation import build_client_experiment_logger
+    app.config["HG_CLIENT_LOGGER"] = build_client_experiment_logger(config)
 
     # Apply ProxyFix for ngrok (reverse proxy)
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
@@ -91,7 +93,13 @@ def create_app(
     @app.route("/api/frame", methods=["POST"])
     def receive_frame():
         """Receive base64 JPEG frame from browser (Colab mode)."""
-        if not config.camera.colab_mode:
+        browser_source = False
+        try:
+            if hasattr(config, "is_browser_source"):
+                browser_source = bool(config.is_browser_source())
+        except AttributeError:
+            browser_source = False
+        if not config.camera.colab_mode and not browser_source:
             return "", 204
 
         data = request.get_json(silent=True) or {}
@@ -157,6 +165,33 @@ def create_app(
         }
         socketio.emit("gesture_command", payload)
         return jsonify({"ok": True, "emitted": gesture}), 200
+
+    @app.route("/api/client-log", methods=["POST"])
+    def receive_client_log():
+        """Append browser measurement records to the client JSONL.
+
+        Accepts one object or ``{"records": [...]}``. Does not affect
+        recognition. Records without run_id/frame_id are stored as-is so
+        unmatched frames remain honest.
+        """
+        data = request.get_json(silent=True)
+        records = []
+        if isinstance(data, dict) and isinstance(data.get("records"), list):
+            records = [r for r in data["records"] if isinstance(r, dict)]
+        elif isinstance(data, dict):
+            records = [data]
+        else:
+            return jsonify({"error": "Expected a JSON object"}), 400
+
+        logger_obj = app.config.get("HG_CLIENT_LOGGER")
+        if logger_obj is None:
+            from backend.utils.instrumentation import build_client_experiment_logger
+            logger_obj = build_client_experiment_logger(config)
+            app.config["HG_CLIENT_LOGGER"] = logger_obj
+
+        for record in records:
+            logger_obj.write(record)
+        return "", 204
 
     # Security headers
     @app.after_request

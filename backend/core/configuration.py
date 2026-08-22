@@ -36,6 +36,10 @@ DEFAULTS: Dict[str, Any] = {
         # to browser JPEG POST. A measurement run with this true is invalid
         # as an OpenCV baseline (see /api/debug and measurement_readiness.md).
         "colab_fallback": False,
+        # Explicit local browser JPEG POST path. Distinct from Colab fallback:
+        # does not set colab_mode or colab_fallback. Default false keeps the
+        # Phase 3A OpenCV capture path unchanged.
+        "browser_source": False,
     },
     "mediapipe": {
         # Aligned with config/config.json (baseline source of truth).
@@ -138,6 +142,7 @@ DEFAULTS: Dict[str, Any] = {
         # Empty string means generate a UUID at pipeline start. Prefer an
         # explicit value (or HGRIA_INSTRUMENTATION_RUN_ID) for measurement.
         "run_id": "",
+        "client_jsonl_path": "logs/client_instrumentation.jsonl",
     },
     "custom_gestures": [],
 }
@@ -357,6 +362,25 @@ class ConfigurationManager:
         if not isinstance(section, dict):
             return False
         return bool(section.get("strict_camera", False))
+
+    def is_browser_source(self) -> bool:
+        """Return True when the local browser JPEG POST path is selected.
+
+        This is an explicit Phase 3B capture source. It is not silent Colab
+        fallback and does not change Phase 3A defaults.
+        """
+        section = self._data.get("camera")
+        if not isinstance(section, dict):
+            return False
+        return bool(section.get("browser_source", False))
+
+    def client_jsonl_path(self) -> str:
+        """Return the client measurement JSONL path (relative default)."""
+        section = self._data.get("instrumentation")
+        if not isinstance(section, dict):
+            return "logs/client_instrumentation.jsonl"
+        value = section.get("client_jsonl_path") or "logs/client_instrumentation.jsonl"
+        return str(value)
 
     def run_id(self) -> str:
         """Return configured instrumentation.run_id, or empty if unset.

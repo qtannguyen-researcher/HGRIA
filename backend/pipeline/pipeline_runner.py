@@ -132,6 +132,7 @@ class PipelineRunner:
         )
         instr_cfg = instrumentation_config(config)
         self._instrumentation_enabled = bool(instr_cfg["enabled"])
+        self._client_jsonl_path = instr_cfg.get("client_jsonl_path")
         self._experiment_logger = (
             experiment_logger
             if experiment_logger is not None
@@ -549,6 +550,7 @@ class PipelineRunner:
                 getattr(self._experiment_logger, "enabled", False)
             ),
             "jsonl_path": getattr(self._experiment_logger, "path", None),
+            "client_jsonl_path": self._client_jsonl_path,
             "run_id": self._run_id,
             "run_metadata_path": self._run_metadata_path,
             "preview_enabled": self._preview_enabled,

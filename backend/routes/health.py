@@ -28,6 +28,11 @@ def debug_info():
     # ── Config snapshot ────────────────────────────────────────────────────
     colab_mode   = bool(config.camera.colab_mode)  if config else None
     colab_fallback = bool(getattr(config.camera, "colab_fallback", False)) if config else None
+    browser_source = (
+        bool(config.is_browser_source())
+        if config and hasattr(config, "is_browser_source")
+        else bool(getattr(config.camera, "browser_source", False)) if config else None
+    )
     blur_thresh  = config.gesture_recognition.noise_filter_blur_threshold if config else None
     smooth_win   = config.gesture_recognition.smoothing_window_size        if config else None
     conf_thresh  = config.gesture_recognition.confidence_threshold         if config else None
@@ -88,6 +93,7 @@ def debug_info():
         "config": {
             "colab_mode":   colab_mode,
             "colab_fallback": colab_fallback,
+            "browser_source": browser_source,
             "strict_camera": strict_camera,
             "preview_enabled": preview_enabled,
             "evaluation_mode": evaluation_mode,
@@ -108,11 +114,19 @@ def debug_info():
         "avg_total_server_ms": instrumentation.get("avg_total_server_ms"),
         "instrumentation": instrumentation,
         "avg_blur_last_30_frames": avg_blur,
-        "diagnosis": _diagnose(stats, colab_mode, frame_store_has_frame, colab_fallback),
+        "diagnosis": _diagnose(
+            stats, colab_mode, frame_store_has_frame, colab_fallback, browser_source
+        ),
     }), 200
 
 
-def _diagnose(stats: dict, colab_mode, frame_store_has_frame, colab_fallback=None) -> str:
+def _diagnose(
+    stats: dict,
+    colab_mode,
+    frame_store_has_frame,
+    colab_fallback=None,
+    browser_source=None,
+) -> str:
     """Return a plain-English summary of where the pipeline is stuck."""
     if not stats:
         return "Pipeline not attached to app — check HG_PIPELINE in app.config"
@@ -127,12 +141,13 @@ def _diagnose(stats: dict, colab_mode, frame_store_has_frame, colab_fallback=Non
 
     captured = stats.get("frames_captured", 0)
     if captured == 0:
-        if colab_mode and not frame_store_has_frame:
+        if (colab_mode or browser_source) and not frame_store_has_frame:
+            source = "browser_source=True" if browser_source and not colab_mode else "colab_mode=True"
             return (
-                "NO FRAMES: colab_mode=True but FrameStore is empty — browser is not "
+                f"NO FRAMES: {source} but FrameStore is empty — browser is not "
                 "POSTing to /api/frame, or WebcamBridge is not running." + suffix
             )
-        if not colab_mode:
+        if not colab_mode and not browser_source:
             return "NO FRAMES: colab_mode=False — OpenCV camera may not be producing frames"
         return "NO FRAMES: unknown reason." + suffix
 

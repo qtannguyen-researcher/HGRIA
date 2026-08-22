@@ -39,6 +39,9 @@ class GameState {
         // when server_info arrives. When true, UI_BYPASS and keyboard injection
         // must not enqueue commands — only the server pipeline may.
         this.evaluationMode = (typeof CONFIG !== 'undefined' && CONFIG.EVALUATION_MODE);
+
+        // Shared with server instrumentation.run_id / HGRIA_INSTRUMENTATION_RUN_ID.
+        this.runId = '';
         
         // Command queue (max 10)
         this.#inputQueue = [];
@@ -124,13 +127,18 @@ class GameState {
      * Apply server info on connect
      * @param {Object} data - { session_id, config }
      */
-    applyServerInfo({ session_id, config }) {
+    applyServerInfo({ session_id, config, run_id }) {
         this.sessionId = session_id;
         this.gameRunning = true;
         this.errorMessage = null;
         const serverEval = !!(config && config.evaluation && config.evaluation.mode);
         this.evaluationMode = this.evaluationMode || serverEval ||
             (typeof CONFIG !== 'undefined' && CONFIG.EVALUATION_MODE);
+        const fromConfig = config && config.instrumentation && config.instrumentation.run_id;
+        this.runId = run_id || fromConfig || this.runId || '';
+        if (typeof HGRIA_CLIENT_LOG !== 'undefined' && HGRIA_CLIENT_LOG.setRunId && this.runId) {
+            HGRIA_CLIENT_LOG.setRunId(this.runId);
+        }
     }
     
     /**

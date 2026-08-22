@@ -193,7 +193,18 @@ class CameraModule:
         self._config = config
         self._frame_store = FrameStore()
 
-        if config.camera.colab_mode:
+        browser_source = False
+        try:
+            if hasattr(config, "is_browser_source"):
+                browser_source = bool(config.is_browser_source())
+            else:
+                browser_source = bool(getattr(config.camera, "browser_source", False))
+        except AttributeError:
+            browser_source = False
+
+        if config.camera.colab_mode or browser_source:
+            # browser_source uses the same FrameStore path as Colab but does
+            # not set colab_mode / colab_fallback (not a silent fallback).
             self._strategy: CaptureStrategy = ColabCaptureStrategy(self._frame_store)
         else:
             self._strategy = self._open_local_or_fallback(config)

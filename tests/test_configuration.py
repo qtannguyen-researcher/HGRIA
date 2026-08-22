@@ -259,6 +259,26 @@ class TestBaselineConfiguration:
             os.unlink(f.name)
         assert cm.is_strict_camera() is True
 
+    def test_browser_source_default_false(self):
+        cm = ConfigurationManager("config/config.json")
+        assert cm.is_browser_source() is False
+        assert DEFAULTS["camera"]["browser_source"] is False
+
+    def test_browser_source_true_not_swallowed(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"camera": {"browser_source": True}}, f)
+            f.flush()
+            cm = ConfigurationManager(f.name)
+            os.unlink(f.name)
+        assert cm.is_browser_source() is True
+        assert cm.camera.colab_mode is False
+        assert cm.camera.colab_fallback is False
+
+    def test_client_jsonl_path_default(self):
+        cm = ConfigurationManager("config/config.json")
+        assert cm.client_jsonl_path() == "logs/client_instrumentation.jsonl"
+        assert not os.path.isabs(cm.client_jsonl_path())
+
     def test_run_id_empty_by_default(self):
         cm = ConfigurationManager("config/config.json")
         assert cm.instrumentation.run_id == ""

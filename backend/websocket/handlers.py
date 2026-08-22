@@ -22,10 +22,22 @@ def register_handlers(
     @sio.on("connect")
     def on_connect():
         """Handle client connection."""
+        run_id = ""
+        try:
+            if hasattr(config, "run_id"):
+                run_id = str(config.run_id() or "")
+            from flask import current_app
+
+            pipeline = current_app.config.get("HG_PIPELINE")
+            if pipeline is not None and getattr(pipeline, "_run_id", None):
+                run_id = str(pipeline._run_id)
+        except Exception:
+            pass
         sio.emit("server_info", {
             "session_id": session.session_id,
             "version": "1.0.0",
             "config": config.public_dict(),
+            "run_id": run_id,
         })
         state_manager.transition("client_connected")
 
