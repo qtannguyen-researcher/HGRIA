@@ -1,0 +1,5 @@
+python: 3.10.12 (main, Jun 22 2026, 18:55:27) [GCC 11.4.0]
+cv2: 4.10.0
+cv2_file: /tmp/hgria-phase3a-venv/lib/python3.10/site-packages/cv2/__init__.py
+ENABLE_USER_SITE: False
+prefix: /tmp/hgria-phase3a-venv

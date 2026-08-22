@@ -1,0 +1,20 @@
+run_id=phase3b-local-browser-8764213c5c568fe20e01a1f387d8a80c8269aa64-r3
+git_sha=8764213c5c568fe20e01a1f387d8a80c8269aa64
+browser_source=true
+HGRIA_EVALUATION_MODE=true
+HGRIA_EVALUATION_PREVIEW_ENABLED=false
+HGRIA_EVALUATION_STRICT_CAMERA=true
+HGRIA_CAMERA_BROWSER_SOURCE=true
+HGRIA_INSTRUMENTATION_RUN_ID=phase3b-local-browser-8764213c5c568fe20e01a1f387d8a80c8269aa64-r3
+HGRIA_INSTRUMENTATION_JSONL_PATH=/home/qtannguyen/projects/researcher/HGRIA/docs/experiments/run_8764213c5c568fe20e01a1f387d8a80c8269aa64_r3/instrumentation.jsonl
+HGRIA_INSTRUMENTATION_CLIENT_JSONL_PATH=/home/qtannguyen/projects/researcher/HGRIA/docs/experiments/run_8764213c5c568fe20e01a1f387d8a80c8269aa64_r3/client_instrumentation.jsonl
+PYTHONNOUSERSITE=1
+2026-08-22T04:23:50Z
+crw-rw----+ 1 root video 81, 0 Thg 8  22 10:42 /dev/video0
+crw-rw----+ 1 root video 81, 1 Thg 8  22 10:42 /dev/video1
+DISPLAY=:0
+===== fuser before browser =====
+ngrok_terminated_before_timed_window=true
+===== fuser after browser =====
+                     USER        PID ACCESS COMMAND
+/dev/video0:         qtannguyen  110736 F...m chrome

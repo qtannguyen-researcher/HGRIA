@@ -1,0 +1,5 @@
+debug_ok_after_s=4
+NGROK_DETECTED_KILLING
+browser_ready_after_s=4
+client_frames_so_far=40 min=1 max=40 t=1
+client_captures_after_63s=1910
