@@ -44,6 +44,25 @@ def debug_info():
     blur_history = list(pipeline._blur_history) if pipeline else []
     avg_blur = round(sum(blur_history) / len(blur_history), 2) if blur_history else None
 
+    dropped_frames = 0
+    try:
+        from backend.pipeline.camera import FrameStore
+        dropped_frames = FrameStore().dropped_frames
+    except Exception:
+        dropped_frames = stats.get("dropped_frames", 0)
+
+    instrumentation = {}
+    if pipeline is not None and hasattr(pipeline, "instrumentation_debug"):
+        instrumentation = pipeline.instrumentation_debug()
+    else:
+        instrumentation = {
+            "processed_frames": stats.get("frames_captured", 0),
+            "commands_sent": stats.get("commands_sent", 0),
+            "dropped_frames": dropped_frames,
+            "avg_total_server_ms": None,
+            "latest_timing": {},
+        }
+
     return jsonify({
         "config": {
             "colab_mode":   colab_mode,
@@ -55,6 +74,12 @@ def debug_info():
         },
         "frame_store_has_frame": frame_store_has_frame,
         "pipeline_stats": stats,
+        "processed_frames": instrumentation.get("processed_frames", stats.get("frames_captured", 0)),
+        "commands_sent": instrumentation.get("commands_sent", stats.get("commands_sent", 0)),
+        "dropped_frames": instrumentation.get("dropped_frames", dropped_frames),
+        "latest_timing": instrumentation.get("latest_timing", {}),
+        "avg_total_server_ms": instrumentation.get("avg_total_server_ms"),
+        "instrumentation": instrumentation,
         "avg_blur_last_30_frames": avg_blur,
         "diagnosis": _diagnose(stats, colab_mode, frame_store_has_frame),
     }), 200

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import uuid
 
 
@@ -67,7 +67,10 @@ class Landmark:
 @dataclass
 class Frame:
     """A single video frame with metadata."""
-    frame_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    # Unique per capture/submit. Server-generated int, or client-provided
+    # value preserved from POST /api/frame. Default UUID keeps older callers
+    # unique if they construct a Frame without going through CameraModule.
+    frame_id: Any = field(default_factory=lambda: str(uuid.uuid4()))
     bgr_data: object = field(default=None)   # np.ndarray at runtime
     rgb_data: object = field(default=None)   # np.ndarray at runtime
     timestamp: datetime = field(default_factory=datetime.utcnow)
@@ -103,10 +106,19 @@ class Command:
     confidence: float = 0.0
     timestamp: datetime = field(default_factory=datetime.utcnow)
     transmitted_at: Optional[datetime] = None
+    # Instrumentation: correlates this command with the frame that produced it.
+    # Existing payload fields are unchanged; these are additive.
+    frame_id: Optional[object] = None
+    server_emitted_at: Optional[str] = None
 
     def to_dict(self) -> dict:
-        """Serialize to a JSON-safe dict with ISO-8601 UTC timestamp."""
-        return {
+        """Serialize to a JSON-safe dict with ISO-8601 UTC timestamp.
+
+        Existing keys are preserved. ``frame_id`` and ``server_emitted_at``
+        are added for Phase 2 correlation and must not replace ``timestamp``
+        or ``confidence``.
+        """
+        payload = {
             "command_id": self.command_id,
             "session_id": self.session_id,
             "gesture_name": self.gesture_name,
@@ -115,6 +127,9 @@ class Command:
             "confidence": self.confidence,
             "timestamp": self.timestamp.isoformat() + "Z",
         }
+        payload["frame_id"] = self.frame_id
+        payload["server_emitted_at"] = self.server_emitted_at
+        return payload
 
 
 @dataclass

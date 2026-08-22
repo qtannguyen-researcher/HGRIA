@@ -212,6 +212,23 @@ class TestBaselineConfiguration:
             os.unlink(f.name)
         assert cm.is_evaluation_mode() is True
 
+    def test_instrumentation_defaults_match_config(self):
+        """Phase 2 JSONL path is relative and enabled by default."""
+        cm = ConfigurationManager("config/config.json")
+        assert cm.is_instrumentation_enabled() is True
+        assert cm.instrumentation.jsonl_path == "logs/instrumentation.jsonl"
+        assert DEFAULTS["instrumentation"]["jsonl_path"] == "logs/instrumentation.jsonl"
+        assert not os.path.isabs(cm.instrumentation.jsonl_path)
+
+    def test_instrumentation_can_be_disabled(self):
+        """instrumentation.enabled=false is readable without changing recognition."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"instrumentation": {"enabled": False}}, f)
+            f.flush()
+            cm = ConfigurationManager(f.name)
+            os.unlink(f.name)
+        assert cm.is_instrumentation_enabled() is False
+
 
 # ===== Property 7: Configuration validation =====
 

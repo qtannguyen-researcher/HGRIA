@@ -1,7 +1,7 @@
 """Camera module with strategy pattern for local and Colab execution modes."""
 
 import threading
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -11,6 +11,11 @@ if TYPE_CHECKING:
     from backend.core.configuration import ConfigurationManager
 
 from backend.core.errors import CameraInitializationError
+from backend.utils.instrumentation import (
+    SERVER_FRAME_IDS,
+    mono_now,
+    normalize_frame_id,
+)
 
 
 class CaptureStrategy:
@@ -81,13 +86,41 @@ class FrameStore:
                 if cls._instance is None:
                     cls._instance = super().__new__(cls)
                     cls._instance._frame = None
+                    cls._instance._pending_frame_id = None
+                    cls._instance._pending_t_received = None
+                    cls._instance._last_consumed_id = None
+                    cls._instance._last_consumed_t_received = None
+                    cls._instance._dropped_frames = 0
                     cls._instance._store_lock = threading.Lock()
         return cls._instance
 
-    def put(self, bgr: np.ndarray) -> None:
-        """Store a new frame."""
+    def _ensure_fields(self) -> None:
+        """Initialise instrumentation fields on a pre-existing singleton."""
+        if not hasattr(self, "_pending_frame_id"):
+            self._pending_frame_id = None
+        if not hasattr(self, "_pending_t_received"):
+            self._pending_t_received = None
+        if not hasattr(self, "_last_consumed_id"):
+            self._last_consumed_id = None
+        if not hasattr(self, "_last_consumed_t_received"):
+            self._last_consumed_t_received = None
+        if not hasattr(self, "_dropped_frames"):
+            self._dropped_frames = 0
+
+    def put(self, bgr: np.ndarray, frame_id: Any = None) -> None:
+        """Store a new frame (last-write-wins).
+
+        If an unread frame is already present it is overwritten and the
+        dropped-frame counter is incremented. Behaviour is otherwise unchanged.
+        """
+        t_received = mono_now()
         with self._store_lock:
+            self._ensure_fields()
+            if self._frame is not None:
+                self._dropped_frames += 1
             self._frame = bgr
+            self._pending_frame_id = normalize_frame_id(frame_id)
+            self._pending_t_received = t_received
 
     def consume(self) -> Optional[np.ndarray]:
         """Atomically read and clear the stored frame.
@@ -97,9 +130,27 @@ class FrameStore:
         the browser.  This ensures each JPEG is processed exactly once.
         """
         with self._store_lock:
+            self._ensure_fields()
             frame = self._frame
+            self._last_consumed_id = self._pending_frame_id
+            self._last_consumed_t_received = self._pending_t_received
             self._frame = None
+            self._pending_frame_id = None
+            self._pending_t_received = None
             return frame
+
+    def last_consumed_meta(self) -> Tuple[Any, Optional[float]]:
+        """Return ``(frame_id, t_server_received)`` from the last consume()."""
+        with self._store_lock:
+            self._ensure_fields()
+            return self._last_consumed_id, self._last_consumed_t_received
+
+    @property
+    def dropped_frames(self) -> int:
+        """Number of unread frames overwritten by a later put()."""
+        with self._store_lock:
+            self._ensure_fields()
+            return self._dropped_frames
 
     def get_latest(self) -> Optional[np.ndarray]:
         """Peek at the latest frame without consuming it (used by /api/debug)."""
@@ -107,9 +158,26 @@ class FrameStore:
             return self._frame
 
     def clear(self) -> None:
-        """Clear the stored frame."""
+        """Clear the stored frame (does not reset the dropped-frame counter)."""
         with self._store_lock:
+            self._ensure_fields()
             self._frame = None
+            self._pending_frame_id = None
+            self._pending_t_received = None
+
+    def reset_instrumentation(self) -> None:
+        """Clear stored frame, last-consumed meta, and dropped-frame counter.
+
+        Intended for tests. Does not change last-write-wins put() behaviour.
+        """
+        with self._store_lock:
+            self._ensure_fields()
+            self._frame = None
+            self._pending_frame_id = None
+            self._pending_t_received = None
+            self._last_consumed_id = None
+            self._last_consumed_t_received = None
+            self._dropped_frames = 0
 
 
 class CameraModule:
@@ -160,6 +228,7 @@ class CameraModule:
         """
         from backend.core.models import Frame
 
+        t_capture = mono_now()
         bgr = self._strategy.read()
         if bgr is None:
             return None
@@ -168,12 +237,28 @@ class CameraModule:
         gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
         blur_score = float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
-        return Frame(
+        frame_id = None
+        t_server_received = t_capture
+        if isinstance(self._strategy, ColabCaptureStrategy):
+            meta_id, meta_t = self._frame_store.last_consumed_meta()
+            if meta_id is not None:
+                frame_id = meta_id
+            if meta_t is not None:
+                t_server_received = meta_t
+        if frame_id is None:
+            frame_id = SERVER_FRAME_IDS.next_id()
+
+        frame = Frame(
+            frame_id=str(frame_id) if not isinstance(frame_id, (int, str)) else frame_id,
             bgr_data=bgr,
             width=bgr.shape[1] if len(bgr.shape) >= 2 else 640,
             height=bgr.shape[0] if len(bgr.shape) >= 2 else 480,
             blur_score=blur_score,
         )
+        # Monotonic timestamps for pipeline instrumentation (not wall clock).
+        frame.t_capture = t_capture
+        frame.t_server_received = t_server_received
+        return frame
 
     def release(self) -> None:
         """Release camera resources."""

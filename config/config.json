@@ -87,5 +87,10 @@
   "evaluation": {
     "mode": false
   },
+  "instrumentation": {
+    "enabled": true,
+    "jsonl_path": "logs/instrumentation.jsonl",
+    "resource_sample_interval_s": 1.0
+  },
   "custom_gestures": []
 }

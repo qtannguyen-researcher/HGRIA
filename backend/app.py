@@ -113,7 +113,9 @@ def create_app(
             arr = np.frombuffer(jpg_bytes, dtype=np.uint8)
             bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
             if bgr is not None:
-                FrameStore().put(bgr)
+                # Optional client frame_id is preserved for correlation.
+                # Absence keeps the existing 204 contract.
+                FrameStore().put(bgr, frame_id=data.get("frame_id"))
             return "", 204
         except Exception as e:
             if logger:

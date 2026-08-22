@@ -119,6 +119,13 @@ DEFAULTS: Dict[str, Any] = {
     "evaluation": {
         "mode": False,
     },
+    # Phase 2: server-side instrumentation. Relative path only — do not put
+    # a machine-specific absolute path here.
+    "instrumentation": {
+        "enabled": True,
+        "jsonl_path": "logs/instrumentation.jsonl",
+        "resource_sample_interval_s": 1.0,
+    },
     "custom_gestures": [],
 }
 
@@ -303,3 +310,14 @@ class ConfigurationManager:
         if not isinstance(section, dict):
             return False
         return bool(section.get("mode", False))
+
+    def is_instrumentation_enabled(self) -> bool:
+        """Return True when instrumentation.enabled is true (default True).
+
+        Uses dict lookup so a JSON ``false`` is not swallowed (unlike ``get()``).
+        A missing section means the Phase 2 default: enabled.
+        """
+        section = self._data.get("instrumentation")
+        if not isinstance(section, dict):
+            return True
+        return bool(section.get("enabled", True))

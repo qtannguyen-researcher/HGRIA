@@ -108,6 +108,7 @@ class CommandGenerator:
             command_type=mapping["command_type"],
             command_value=mapping["command_value"],
             confidence=partial["confidence"],
+            frame_id=partial.get("frame_id"),
         )
 
         # Record in session
